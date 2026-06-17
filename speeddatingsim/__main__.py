@@ -24,7 +24,7 @@ np.random.seed(100)
 random.seed(100)
 
 N_TRIALS: Final = 10
-BUDGET: Final = 20
+BUDGET: Final = 30
 GRAPHS: Final = True
 COHORT_SIZE: Final = 60
 
@@ -777,7 +777,7 @@ if __name__ == "__main__":
         # cohort = make_gay_paradise_cohort(COHORT_SIZE)
         cohort = [
             *make_crumpet_cohort(COHORT_SIZE // 2),
-            *make_natstats_cohort(COHORT_SIZE, smoothe=0.1),
+            *make_natstats_cohort(COHORT_SIZE // 2, smoothe=0.1),
         ]
         random.shuffle(cohort)
         cohorts.append(cohort)

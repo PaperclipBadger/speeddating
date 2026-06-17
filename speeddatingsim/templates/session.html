@@ -1,0 +1,26 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div style="display: block; float: right">
+    <p>
+        <a href="{{ url_for('matchmaker_page', _external=True, sessionid=session.id) }}">
+            Join the session
+        </a>
+    </p>
+    {{ url_for('matchmaker_page', _external=True, sessionid=session.id) | qr }}
+</div>
+<h1>{{ session.name }}</h1>
+<form action="{{ url_for('session_start', sessionid=session.id) }}" method="post">
+    <input type="submit" value="start">
+</form>
+<form action="{{ url_for('session_end', sessionid=session.id) }}" method="post">
+    <input type="submit" value="stop">
+</form>
+<p>{{ session.users | length }} user{% if session.users|length > 1 %}s have{% else %} has{% endif %} joined the
+    session:</p>
+<ul>
+    {% for user in session.users %}
+    <li>{{ user.name }}</li>
+    {% endfor %}
+</ul>
+{% endblock %}

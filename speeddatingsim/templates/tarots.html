@@ -1,0 +1,10 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<h1>Tarot Cards</h1>
+<ul>
+    {% for card in cards %}
+    <li><a href="{{ url_for('tarot_page', index=card.index) }}">{{ card.full_name }}</a></li>
+    {% endfor %}
+</ul>
+{% endblock %}

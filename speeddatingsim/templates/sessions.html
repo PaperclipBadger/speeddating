@@ -1,0 +1,19 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div id="content">
+    <h1>Create a session:</h1>
+    <form action="{{ url_for('sessions_page') }}" method="post">
+        <input name="Session name" id="sessionid" />
+        <input type="submit" value="Create" />
+    </form>
+    <h1>Sessions</h1>
+    <ul>
+        {% for session in sessions %}
+        <li><a href="{{ url_for('session_page', sessionid=session.id) }}">{{ session.name }}</a></li>
+        {% endfor %}
+    </ul>
+</div>
+{% include 'footer.html' %}
+</body>
+{% endblock %}

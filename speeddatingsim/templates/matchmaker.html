@@ -1,0 +1,22 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<p>Session status: {{ session.status }}</p>
+<div class="columns">
+    <div>
+        <h2>{{ user.name }}</h2>
+        <img src="{{ url_for('static', filename=card.svg_filename) }}" alt="image here">
+    </div>
+    <p>The session has not started.</p>
+</div>
+<form action="{{ url_for('user_draw_tarot') }}" method="post">
+    <input type="submit" value="Redraw Tarot">
+</form>
+<form action="{{ url_for('user_draw_adjective') }}" method="post">
+    <input type="submit" value="Redraw Adjective">
+</form>
+<form action="{{ url_for('user_edit') }}" method="post">
+    <input name="name" value="{{ user.name }}">
+    <input type="submit" value="Change name">
+</form>
+{% endblock %}

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Queer Speed Dating</title>
+    {% if refresh_url %}
+    <script>
+        setInterval(async () => {
+            try {
+                const response = await fetch("{{ refresh_url }}");
+                const shouldRefresh = await response.json();
+
+                if (shouldRefresh === true) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error('Polling check failed:', error);
+            }
+        }, 10000); // 10000ms = 10 seconds
+    </script>
+    {% endif %}
+</head>
+
+<body>
+    <div id="header">
+        <h1><a href="{{ url_for('index') }}">Queer Speed Dating</a></h1>
+    </div>
+    <div id="content">
+        {% block content %}
+        {% endblock %}
+    </div>
+    <div id="footer">
+        By Blaine Rogers. Copyright 2026.
+    </div>
+</body>
+
+</html>
