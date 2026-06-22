@@ -1,12 +1,9 @@
 import asyncio
-import contextlib
-import concurrent.futures
 import enum
-import itertools
 import re
 import functools
 import random
-from collections.abc import Awaitable, Generator
+from collections.abc import Awaitable
 
 import numpy as np
 import qrcode
@@ -33,7 +30,6 @@ class Session(db.Entity):
     users = orm.Set("User")
     dates = orm.Set("Date")
     status = orm.Required(SessionStatus)
-    freshness = orm.Required(int, default=0)
 
 
 class User(db.Entity):
@@ -42,11 +38,11 @@ class User(db.Entity):
     sessions = orm.Set(Session)
     lefts = orm.Set("Date", reverse="left")
     rights = orm.Set("Date", reverse="right")
-    freshness = orm.Required(int, default=0)
 
 
 class Date(db.Entity):
     session = orm.Required("Session")
+    tableno = orm.Required(int)
     left = orm.Required("User", reverse="lefts")
     right = orm.Required("User", reverse="rights")
     decision_left = orm.Optional(bool)
@@ -142,13 +138,22 @@ async def session_page(sessionid: int):
         session = Session.get(id=sessionid)
         session.load()
         session.users.load()
+        session.dates.load()
         for user in session.users:
             user.load()
+        
+        tables = {}
+        for date in session.dates:
+            if not (other := tables.get(date.tableno)) or date.id > other.id:
+                tables[date.tableno] = date
+        
+        dates = sorted(tables.values(), key=lambda date: date.tableno)
 
     if session:
         return await render_template(
             "session.html",
             session=session,
+            dates=dates,
             refresh_url=url_for("session_page_events", sessionid=sessionid),
         )
     abort(404)
@@ -200,21 +205,19 @@ async def matchmaker_page(sessionid: int, userid: int):
             session.load()
             user.load()
             session.users.add(user)
-            other_right = orm.select(
-                date.right for date in Date
-                if date.session == session
-                if date.left == user
-                if date.decision_left is None
-            ).first()
-            other_left = orm.select(
-                date.left for date in Date
-                if date.session == session
-                if date.right == user
-                if date.decision_right is None
-            ).first()
-            other_user = other_left or other_right
-            if other_user:
+            if date := get_current_date(sessionid, userid):
+                tableno = date.tableno
+                if date.left.id == user.id:
+                    other_user = date.right
+                    decision = date.decision_left
+                else:
+                    other_user = date.left
+                    decision = date.decision_right
                 other_user.load()
+            else:
+                tableno = None
+                other_user = None
+                decision = None
     
     if session and user:
         await session_notify_subscribers(sessionid)
@@ -222,8 +225,11 @@ async def matchmaker_page(sessionid: int, userid: int):
             "matchmaker.html",
             session=session,
             user=user,
-            other=other_user,
+            tableno=tableno,
+            no_decision=decision is None,
             card=TAROT_CARDS[user.tarot],
+            other_user=other_user,
+            other_card=TAROT_CARDS[other_user.tarot] if other_user is not None else None,
             refresh_url=url_for('matchmaker_page_events', sessionid=sessionid),
         )
     abort(404)
@@ -241,6 +247,46 @@ async def matchmaker_page_events(sessionid: int, userid: int):
     )
 
 
+@app.route("/sessions/<int:sessionid>/decide", methods=["POST"])
+@with_user
+async def user_decide(sessionid: int, userid: int):
+    if (await request.form).get("decide_yes"):
+        verdict = True
+    elif (await request.form).get("decide_no"):
+        verdict = False
+    else:
+        verdict = None
+    
+    with orm.db_session:
+        session = Session.get(id=sessionid)
+        if not session:
+            abort(404)
+
+        user = User.get(id=userid)
+        if not user:
+            abort(500)
+
+        if date := orm.select(
+            date for date in Date
+            if date.session == session
+            if date.left == user
+            if date.decision_left is None
+        ).first():
+            date.decision_left = verdict
+
+        elif date := orm.select(
+            date for date in Date
+            if date.session == session
+            if date.right == user
+            if date.decision_right is None
+        ).first():
+            date.decision_right = verdict
+
+    await user_notify_subscribers(user.id)
+    await session_notify_subscribers(sessionid)
+    return redirect(request.referrer or url_for('matchmaker_page', sessionid=sessionid))
+
+
 @app.route("/user/draw_tarot", methods=["POST"])
 @with_user
 async def user_draw_tarot(userid: int):
@@ -256,7 +302,7 @@ async def user_draw_tarot(userid: int):
     await user_notify_subscribers(user.id)
     for session in user.sessions:
         await session_notify_subscribers(session.id)
-    return redirect(request.referrer or url_for('/user'))
+    return redirect(request.referrer or url_for('index'))
 
 
 @app.route("/user/draw_adjective", methods=["POST"])
@@ -275,13 +321,13 @@ async def user_draw_adjective(userid: int):
         await user_notify_subscribers(user.id)
         for session in user.sessions:
             await session_notify_subscribers(session.id)
-    return redirect(request.referrer or url_for('/user'))
+    return redirect(request.referrer or url_for('index'))
 
 
 @app.route("/user", methods=["POST"])
 @with_user
 async def user_edit(userid: int):
-    if new_name := request.form.get("name"):
+    if new_name := (await request.form).get("name"):
         with orm.db_session:
             user = User.get(id=userid)
             if not user:
@@ -291,7 +337,7 @@ async def user_edit(userid: int):
         await user_notify_subscribers(user.id)
         for session in user.sessions:
             await session_notify_subscribers(session.id)
-    return redirect(request.referrer or url_for('/user'))
+    return redirect(request.referrer or url_for('index'))
 
 
 @app.route("/tarot")
@@ -304,35 +350,49 @@ async def tarot_page(index: int):
     return await render_template("tarot.html", card=TAROT_CARDS[index])
 
 
+@app.route("/sessions/<int:sessionid>/matchmake", methods=["POST"])
 async def matchmake(sessionid: int):
     with orm.db_session:
-        # remove any users with undecided dates from consideration
-        users: list[User] = orm.select(
-            user for user in User
-            if sessionid in user.session.id
-            if all(
-                date.decision_left is not None
-                for date in Date
-                if date.session.id == sessionid
-                if date.left.id == user.id
-            )
-            if all(
-                date.decision_right is not None
-                for date in Date
-                if date.session.id == sessionid
-                if date.right.id == user.id
-            )
-        )
+        session = Session.get(id=sessionid)
+        if not session:
+            abort(404)
 
-        n = len(users)
-        index_map = {user.id: i for user in users}
+        users = orm.select(user for user in session.users)
+        all_users: list[User] = list(users)
+
+        # remove any users with undecided dates from consideration
+        eligible: set[int] = {
+            user.id for user in users.filter(
+                lambda user: not orm.exists(
+                    date for date in Date
+                    if date.session.id == sessionid
+                    if date.left.id == user.id
+                    if date.decision_left is None
+                )
+            ).filter(
+                lambda user: not orm.exists(
+                    date for date in Date
+                    if date.session.id == sessionid
+                    if date.right.id == user.id
+                    if date.decision_right is None
+                )
+            )
+        }
+
+        n = len(all_users)
+        index_map = {user.id: i for i, user in enumerate(all_users)}
+        table_map = {}
+        for user in all_users:
+            if date := get_current_date(sessionid, user.id):
+                table_map[user.id] = date.tableno
 
         # build the decisions matrix
         decisions = np.zeros((n, n), dtype=np.int8)
-        for i, user in enumerate(users):
+        for i, user in enumerate(all_users):
             for date in orm.select(
                 date for date in Date
-                if date.left.id == user.id
+                if date.session.id == sessionid
+                if date.left == user
             ):
                 j = index_map[date.right.id]
                 decisions[i, j] = (1 if date.decision_left else -1)
@@ -357,7 +417,11 @@ async def matchmake(sessionid: int):
 
     graph = []
     for i in range(n):
+        if all_users[i].id not in eligible:
+            continue
         for j in range(i + 1, n):
+            if all_users[j].id not in eligible:
+                continue
             if decisions[i, j] == 0:
                 # basic: match people who are recommended to each other
                 weight = min(
@@ -370,20 +434,74 @@ async def matchmake(sessionid: int):
 
     mate = maxWeightMatching(graph, maxcardinality=True)
 
+    # match dates to tables to minimize movement
+    def goodness(i, j, tableno):
+        if (
+            (i_table := table_map.get(all_users[i].id))
+            and (j_table := table_map.get(all_users[j].id))
+        ):
+            return -(
+                abs(tableno - i_table)
+                + abs(tableno - j_table)
+            )
+        else:
+            return 0
+    
+    dates = [(i, j) for i, j in enumerate(mate) if j > i]
+
+    num_tables = len(dates) if not table_map else max(len(dates), *table_map.values())
+    table_graph = [
+        (tableno, num_tables + k, goodness(i, j, tableno))
+        for k, (i, j) in enumerate(dates)
+        for tableno in range(num_tables)
+    ]
+    table_assignments = maxWeightMatching(table_graph, maxcardinality=True)
+
     # perform the dates
+    changed_users = set()
+
     with orm.db_session:
         session = Session.get(id=sessionid)
 
-        for i, j in enumerate(mate):
-            if j < i:
-                continue
-            
-            left = User.get(id=users[i].id)
-            left.freshness += 1
-            right = User.get(id=users[j].id)
-            right.freshness += 1
-            date = Date(session=session, left=left, right=right)
+        for tableno, k in enumerate(table_assignments[:num_tables]):
+            if k < 0:
+                pass
 
+            i, j = dates[k - num_tables]
+            changed_users.add(all_users[i].id)
+            changed_users.add(all_users[j].id)
+            left = User.get(id=all_users[i].id)
+            right = User.get(id=all_users[j].id)
+            date = Date(session=session, tableno=tableno, left=left, right=right)
+
+    for userid in changed_users:
+        await user_notify_subscribers(userid)
+    
+    await session_notify_subscribers(sessionid)
+
+    return redirect(request.referrer or url_for("session_page", sessionid=sessionid))
+
+
+def get_current_date(sessionid: int, userid: int) -> Date | None:
+    return orm.select(
+        date for date in Date
+        if date.session.id == sessionid
+        if date.left.id == userid
+    ).sort_by(orm.desc(Date.id)).first() or orm.select(
+        date for date in Date
+        if date.session.id == sessionid
+        if date.right.id == userid
+    ).sort_by(orm.desc(Date.id)).first()
+
+
+def get_other_user(sessionid: int, userid: int) -> User | None:
+    if date := get_current_date(sessionid, userid):
+        if date.left.id == userid:
+            return date.right
+        if date.right.id == userid:
+            return date.left
+    return None
+    
 
 user_notify_on_changes: dict[int, set[asyncio.Event]] = {}
 session_notify_on_changes: dict[int, set[asyncio.Event]] = {}

@@ -9,18 +9,45 @@
     </p>
     {{ url_for('matchmaker_page', _external=True, sessionid=session.id) | qr }}
 </div>
-<h1>{{ session.name }}</h1>
-<form action="{{ url_for('session_start', sessionid=session.id) }}" method="post">
-    <input type="submit" value="start">
+<form action="{{ url_for('matchmake', sessionid=session.id) }}" method="post">
+    <input type="submit" value="Run Matchmaking">
 </form>
 <form action="{{ url_for('session_end', sessionid=session.id) }}" method="post">
     <input type="submit" value="stop">
 </form>
+
+<h2>{{ session.name }}</h2>
+{% if dates %}
+<table>
+    <tr>
+        <th>Table</th>
+        <th>Left</th>
+        <th>Right</th>
+    </tr>
+    {% for date in dates %}
+    <tr>
+        <td>{{ date.tableno }}</td>
+        <td>
+            <span class="{% if date.decision_left is not none %}decided{% else %}undecided{% endif %}">
+                {{ date.left.name }}
+            </span>
+        </td>
+        <td>
+            <span class="{% if date.decision_right is not none %}decided{% else %}undecided{% endif %}">
+                {{ date.right.name }}
+            </span>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
 <p>{{ session.users | length }} user{% if session.users|length > 1 %}s have{% else %} has{% endif %} joined the
-    session:</p>
+    session:
+</p>
 <ul>
     {% for user in session.users %}
     <li>{{ user.name }}</li>
     {% endfor %}
 </ul>
+{% endif %}
 {% endblock %}

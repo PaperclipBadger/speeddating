@@ -1,22 +1,42 @@
 {% extends 'layout.html' %}
 
 {% block content %}
-<p>Session status: {{ session.status }}</p>
+<form action="{{ url_for('user_edit') }}" method="post" id="userEditForm">
+    <input type="submit" hidden />
+</form>
+<form action="{{ url_for('user_draw_tarot') }}" method="post" id="drawTarotForm"></form>
+<form action="{{ url_for('user_draw_adjective') }}" method="post" id="drawAdjectiveForm"></form>
+<form action="{{ url_for('user_decide', sessionid=session.id) }}" method="post" id="decideForm"></form>
+<div>
+    <p>Your table number is {{ tableno }}.</p>
+</div>
 <div class="columns">
     <div>
-        <h2>{{ user.name }}</h2>
+        <h2>You</h2>
+        <div class="formcontainer">
+            <input class="clickToEdit" name="name" value="{{ user.name }}" form="userEditForm"> (You)</h2>
+            <button type="submit" name="drawTarotButton" value="drawTarot" form="drawTarotForm">Redraw Tarot</button>
+            <button type="submit" name="drawAdjectiveButton" value="drawAdjective" form="drawAdjectiveForm">Redraw
+                Adjective</button>
+        </div>
         <img src="{{ url_for('static', filename=card.svg_filename) }}" alt="image here">
     </div>
-    <p>The session has not started.</p>
+    <div>
+        <h2>Them</h2>
+        {% if other_user %}
+        <h2>{{ other_user.name }}</h2>
+        {% if no_decision %}
+        <div class="formcontainer">
+            <button class="goodoption" type="submit" name="decide_yes" value="1" form="decideForm">Yes</button>
+            <button class="badoption" type="submit" name="decide_no" value="-1" form="decideForm">No</button>
+        </div>
+        {% else %}
+        <p>Thanks for casting judgement!</p>
+        {% endif %}
+        <img src="{{ url_for('static', filename=other_card.svg_filename) }}" alt="image here">
+        {% else %}
+        <p>Waiting for the host to run matchmaking...</p>
+        {% endif %}
+    </div>
 </div>
-<form action="{{ url_for('user_draw_tarot') }}" method="post">
-    <input type="submit" value="Redraw Tarot">
-</form>
-<form action="{{ url_for('user_draw_adjective') }}" method="post">
-    <input type="submit" value="Redraw Adjective">
-</form>
-<form action="{{ url_for('user_edit') }}" method="post">
-    <input name="name" value="{{ user.name }}">
-    <input type="submit" value="Change name">
-</form>
 {% endblock %}
