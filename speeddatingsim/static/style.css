@@ -7,9 +7,21 @@ body {
 }
 
 div#header {
-    display: block;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     width: 100%;
     background-color: aliceblue;
+    overflow: hidden;
+}
+
+div#header .titlebox {
+    flex-grow: 1;
+}
+
+div#header .menu {
+    flex-grow: 0;
+    flex-shrink: 0;
 }
 
 div#header h1 {
