@@ -863,8 +863,11 @@ async def stream_notifications(event: asyncio.Event, teardown: Awaitable[None]):
         await teardown
 
 
-if __name__ == "__main__":
+@app.before_serving
+def init_db():
     db.bind(provider="sqlite", filename="database.sqlite", create_db=True)
     db.generate_mapping(create_tables=True)
 
+
+if __name__ == "__main__":
     app.run(port=8000)
