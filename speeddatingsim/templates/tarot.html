@@ -3,19 +3,10 @@
 {% block content %}
 <img src="{{ url_for('static', filename=card.svg_filename) }}" , style="float: right; max-width: 50%;">
 <h1>{{ card.full_name }}</h1>
-{% for paragraph in card.description.split("\n\n") %}
-<p>{{ paragraph }}</p>
-{% endfor %}
-<h2>Upright</h2>
-<ul>
-    {% for reading in card.upright %}
-    <li>{{ reading}}</li>
+<blockquote>
+    {% for paragraph in card.description.split("\n\n") %}
+    <p>{{ paragraph | safe }}</p>
     {% endfor %}
-</ul>
-<h2>Reversed</h2>
-<ul>
-    {% for reading in card.reversed %}
-    <li>{{ reading}}</li>
-    {% endfor %}
-</ul>
+</blockquote>
+<p>&mdash;Arthur E. Waite, <i>The Pictorial Key to the Tarot</i></p>
 {% endblock %}

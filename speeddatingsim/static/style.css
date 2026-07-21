@@ -82,3 +82,7 @@ span.decided {
 .badoption {
     background-color: red;
 }
+
+table.vheader th {
+    writing-mode: vertical-rl;
+}

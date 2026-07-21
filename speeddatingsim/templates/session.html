@@ -52,21 +52,21 @@
     {% endfor %}
 </ul>
 {% endif %}
-{% if historical_dates %}
+{% if decisions %}
 <p>Date history:</p>
-<table>
+<table class="vheader">
     <tr>
-        <th>Left</th>
-        <th>LD</th>
-        <th>RD</th>
-        <th>Right</th>
+        <th></th>
+        {% for user in session.users %}
+        <th>{{ user.name }}</th>
+        {% endfor %}
     </tr>
-    {% for date in historical_dates %}
+    {% for user in session.users %}
     <tr>
-        <td>{{ date.left.name }}</td>
-        <td>{% if date.decision_left %}Yes{% else %}No{% endif %}</td>
-        <td>{% if date.decision_right %}Yes{% else %}No{% endif %}</td>
-        <td>{{ date.right.name }}</td>
+        <td>{{ user.name }}</td>
+        {% for other in session.users %}
+        <td>{{ decisions[user.id][other.id] }}</td>
+        {% endfor %}
     </tr>
     {% endfor %}
 </table>

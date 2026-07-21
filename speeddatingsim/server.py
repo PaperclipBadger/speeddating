@@ -179,15 +179,26 @@ async def session_page(sessionid: int):
                 date for date in session.dates
                 if date.decision_left is not None
                 if date.decision_right is not None
-            ).prefetch(Date.left, Date.right).order_by(Date.id)
+            )
         )
+        decisions = {
+            user.id: {
+                other.id: ""
+                for other in session.users
+            }
+            for user in session.users
+        }
+        for date in historical_dates:
+            decisions[date.left.id][date.right.id] = "Y" if date.decision_left else "N"
+            decisions[date.right.id][date.left.id] = "Y" if date.decision_right else "N"
+
 
     if session:
         return await render_template(
             "session.html",
             session=session,
             dates=dates,
-            historical_dates=historical_dates,
+            decisions=decisions,
             refresh_url=url_for("session_page_events", sessionid=sessionid),
         )
     abort(404)
@@ -524,12 +535,13 @@ async def matchmake(sessionid: int):
         round = Round(session=Session.get(id=sessionid))
         for i in range(n):
             for j in range(n):
-                Similarity(
-                    round=round,
-                    subject=User.get(id=all_users[i].id),
-                    object=User.get(id=all_users[j].id),
-                    weight=S[i, j],
-                )
+                if i != j:
+                    Similarity(
+                        round=round,
+                        subject=User.get(id=all_users[i].id),
+                        object=User.get(id=all_users[j].id),
+                        weight=S[i, j],
+                    )
         
         for i, j, w in graph:
             Recommendation(

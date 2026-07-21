@@ -1,23 +1,25 @@
 import dataclasses
+import functools
 import itertools
+import pathlib
+import re
 from collections.abc import Iterator
 from typing import ClassVar, Literal
 
 
 TAROT_CARDS = []
 
+SPLIT_AT = re.compile(r"(_Divinatory\s+Meanings_|_Reversed_)", re.MULTILINE)
+ITALICS = re.compile(r"_(.*?)_", re.MULTILINE | re.DOTALL)
 
-@dataclasses.dataclass(slots=True, frozen=True)
+
+@dataclasses.dataclass
 class TarotCard:
     INDICES: ClassVar[Iterator[int]] = iter(itertools.count())
 
     suit: Literal["Major", "Wand", "Cup", "Sword", "Pentacle"]
     rank: int
     name: str
-    description: str = ""
-    upright: list[str] = dataclasses.field(default_factory=list)
-    reversed: list[str] = dataclasses.field(default_factory=list)
-
     index: int = dataclasses.field(default_factory=INDICES.__next__)
 
     def __post_init__(self):
@@ -42,37 +44,25 @@ class TarotCard:
             return f"{self.index:02d}_{self.index}_{name_slug}.svg"
         else:
             if self.rank < 10:
-                name_slug = str(self.rank)
+                name_slug = str(self.rank + 1)
             else:
                 name_slug = self.name
             return f"{self.index:02d}_{self.suit}_{name_slug}.svg"
     
+    @functools.cached_property
+    def description(self) -> str:
+        here = pathlib.Path(__file__).parent
+        desc_file = (here / "waite_cards" / self.svg_filename).with_suffix(".txt")
+        with desc_file.open() as f:
+            desc = f.read()
+        desc = desc.replace("--", "&mdash;")
+        desc = SPLIT_AT.sub(r"\n\n\g<1>", desc)
+        desc = ITALICS.sub(r"<i>\g<1></i>", desc)
+        return desc
 
-
-TarotCard(
-    suit="Major",
-    rank=0,
-    name="Fool",
-    description="""\
-With light step, as if earth and its trammels had little power to restrain him, a young man in gorgeous vestments pauses at the brink of a precipice among the great heights of the world; he surveys the blue distance before him-its expanse of sky rather than the prospect below.
-
-His act of eager walking is still indicated, though he is stationary at the given moment; his dog is still bounding. The edge which opens on the depth has no terror; it is as if angels were waiting to uphold him, if it came about that he leaped from the height. His countenance is full of intelligence and expectant dream.
-
-He has a rose in one hand and in the other a costly wand, from which depends over his right shoulder a wallet curiously embroidered. He is a prince of the other world on his travels through this one-all amidst the morning glory, in the keen air. The sun, which shines behind him, knows whence he came, whither he is going, and how he will return by another path after many days.
-
-He is the spirit in search of experience. Many symbols of the Instituted Mysteries are summarized in this card, which reverses, under high warrants, all the confusions that have preceded it.
-
-In his Manual of Cartomancy, Grand Orient has a curious suggestion of the office of Mystic Fool, as apart of his process in higher divination; but it might call for more than ordinary gifts to put it into operation.
-
-We shall see how the card fares according to the common arts of fortune-telling, and it will be an example, to those who can discern, of the fact, otherwise so evident, that the Trumps Major had no place originally in the arts of psychic gambling, when cards are used as the counters and pretexts. Of the circumstances under which this art arose we know, however, very little.
-
-The conventional explanations say that the Fool signifies the flesh, the sensitive life, and by a peculiar satire its subsidiary name was at one time the alchemist, as depicting folly at the most insensate stage.
-""",
-    upright=["folly", "mania", "extravagance", "intoxication", "delirium", "frenzy", "bewrayment"],
-    reversed=["negligence", "absence", "distribution", "carelessness", "apathy", "nullity", "vanity"],
-)
-TarotCard("Major", 1, "The Magician"),
-TarotCard("Major", 2, "The High Priestess"),
+TarotCard("Major", 0, "Fool")
+TarotCard("Major", 1, "The Magician")
+TarotCard("Major", 2, "The High Priestess")
 TarotCard("Major", 3, "The Empress"),
 TarotCard("Major", 4, "The Emperor"),
 TarotCard("Major", 5, "The Hierophant"),
@@ -92,25 +82,21 @@ TarotCard("Major", 18, "The Moon"),
 TarotCard("Major", 19, "The Sun"),
 TarotCard("Major", 20, "Judgement"),
 TarotCard("Major", 21, "The World"),
-itertools.chain.from_iterable(
-    [
-        TarotCard(suit, 0, "Ace"),
-        TarotCard(suit, 1, "Two"),
-        TarotCard(suit, 2, "Three"),
-        TarotCard(suit, 3, "Four"),
-        TarotCard(suit, 4, "Five"),
-        TarotCard(suit, 5, "Six"),
-        TarotCard(suit, 6, "Seven"),
-        TarotCard(suit, 7, "Eight"),
-        TarotCard(suit, 8, "Nine"),
-        TarotCard(suit, 9, "Ten"),
-        TarotCard(suit, 10, "Page"),
-        TarotCard(suit, 11, "Knight"),
-        TarotCard(suit, 12, "Queen"),
-        TarotCard(suit, 13, "King"),
-    ]
-    for suit in ("Wand", "Cup", "Sword", "Pentacle")
-)
+for suit in ("Wand", "Cup", "Sword", "Pentacle"):
+    TarotCard(suit, 0, "Ace"),
+    TarotCard(suit, 1, "Two"),
+    TarotCard(suit, 2, "Three"),
+    TarotCard(suit, 3, "Four"),
+    TarotCard(suit, 4, "Five"),
+    TarotCard(suit, 5, "Six"),
+    TarotCard(suit, 6, "Seven"),
+    TarotCard(suit, 7, "Eight"),
+    TarotCard(suit, 8, "Nine"),
+    TarotCard(suit, 9, "Ten"),
+    TarotCard(suit, 10, "Page"),
+    TarotCard(suit, 11, "Knight"),
+    TarotCard(suit, 12, "Queen"),
+    TarotCard(suit, 13, "King"),
 
 
 if __name__ == "__main__":
