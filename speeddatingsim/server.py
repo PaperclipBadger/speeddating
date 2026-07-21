@@ -368,9 +368,9 @@ async def session_page(sessionid: int):
     with orm.db_session:
         session = Session.get(id=sessionid)
         session.load()
-        session.users.load()
-        session.dates.load()
-        for user in session.users:
+
+        users = list(session.users.order_by(User.id))
+        for user in users:
             user.load()
         
         tables = {}
@@ -383,8 +383,7 @@ async def session_page(sessionid: int):
         historical_dates = list(
             orm.select(
                 date for date in session.dates
-                if date.decision_left is not None
-                if date.decision_right is not None
+                if date.decision_left is not None or date.decision_right is not None
             )
         )
         decisions = {
@@ -395,14 +394,17 @@ async def session_page(sessionid: int):
             for user in session.users
         }
         for date in historical_dates:
-            decisions[date.left.id][date.right.id] = "Y" if date.decision_left else "N"
-            decisions[date.right.id][date.left.id] = "Y" if date.decision_right else "N"
+            if date.decision_left is not None:
+                decisions[date.left.id][date.right.id] = "Y" if date.decision_left else "N"
+            if date.decision_right is not None:
+                decisions[date.right.id][date.left.id] = "Y" if date.decision_right else "N"
 
 
     if session:
         return await render_template(
             "session.html",
             session=session,
+            users=users,
             dates=dates,
             decisions=decisions,
             refresh_url=url_for("session_page_events", sessionid=sessionid),

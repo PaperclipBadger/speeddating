@@ -43,11 +43,11 @@
     {% endfor %}
 </table>
 {% else %}
-<p>{{ session.users | length }} user{% if session.users|length > 1 %}s have{% else %} has{% endif %} joined the
+<p>{{ users|length }} user{% if users|length > 1 %}s have{% else %} has{% endif %} joined the
     session:
 </p>
 <ul>
-    {% for user in session.users %}
+    {% for user in users %}
     <li>{{ user.name }}</li>
     {% endfor %}
 </ul>
@@ -57,14 +57,14 @@
 <table class="vheader">
     <tr>
         <th></th>
-        {% for user in session.users %}
+        {% for user in users %}
         <th>{{ user.name }}</th>
         {% endfor %}
     </tr>
-    {% for user in session.users %}
+    {% for user in users %}
     <tr>
         <td>{{ user.name }}</td>
-        {% for other in session.users %}
+        {% for other in users %}
         <td>{{ decisions[user.id][other.id] }}</td>
         {% endfor %}
     </tr>
