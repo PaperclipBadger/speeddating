@@ -41,4 +41,40 @@
         {% endif %}
     </div>
 </div>
+{% if recommendations %}
+<div>
+    <h3>Matching Statistics</h3>
+    <p>Here's how similar your preferences are to other people:</p>
+    <table>
+        <tr>
+            <th>Other User</th>
+            <th>Similarity</th>
+        </tr>
+        {% for similarity in similarities %}
+        <tr>
+            <td>{{ similarity.object.name }}</td>
+            <td>{{ similarity.weight }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <p>Here are your matching weights from the last round:</p>
+    <table>
+        <tr>
+            <th>Other User</th>
+            <th>Weight</th>
+        </tr>
+        {% for recommendation in recommendations %}
+        <tr>
+            {% if other_user.id == recommendation.object.id %}
+            <td><b>{{ recommendation.object.name }}</b></td>
+            <td><b>{{ recommendation.weight }}</b></td>
+            {% else %}
+            <td>{{ recommendation.object.name }}</td>
+            <td>{{ recommendation.weight }}</td>
+            {% endif %}
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
 {% endblock %}

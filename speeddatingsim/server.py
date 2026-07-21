@@ -29,6 +29,7 @@ class Session(db.Entity):
     name = orm.Required(str)
     users = orm.Set("User")
     dates = orm.Set("Date")
+    rounds = orm.Set("Round")
     status = orm.Required(SessionStatus)
 
 
@@ -38,15 +39,39 @@ class User(db.Entity):
     sessions = orm.Set(Session)
     lefts = orm.Set("Date", reverse="left")
     rights = orm.Set("Date", reverse="right")
+    recommendations = orm.Set("Recommendation", reverse="subject")
+    recommended_to = orm.Set("Recommendation", reverse="object")
+    similarities = orm.Set("Similarity", reverse="subject")
+    similar_to = orm.Set("Similarity", reverse="object")
 
 
 class Date(db.Entity):
-    session = orm.Required("Session")
+    session = orm.Required(Session)
     tableno = orm.Required(int)
-    left = orm.Required("User", reverse="lefts")
-    right = orm.Required("User", reverse="rights")
+    left = orm.Required(User, reverse="lefts")
+    right = orm.Required(User, reverse="rights")
     decision_left = orm.Optional(bool)
     decision_right = orm.Optional(bool)
+
+
+class Round(db.Entity):
+    session = orm.Set(Session)
+    similarities = orm.Set("Similarity")
+    recommendations = orm.Set("Recommendation")
+
+
+class Similarity(db.Entity):
+    round = orm.Required(Round)
+    subject = orm.Required(User, reverse="similarities")
+    object = orm.Required(User, reverse="similar_to")
+    weight = orm.Required(float)
+
+
+class Recommendation(db.Entity):
+    round = orm.Required(Round)
+    subject = orm.Required(User, reverse="recommendations")
+    object = orm.Required(User, reverse="recommended_to")
+    weight = orm.Required(float)
 
 
 app = Quart(__name__)
@@ -149,11 +174,20 @@ async def session_page(sessionid: int):
         
         dates = sorted(tables.values(), key=lambda date: date.tableno)
 
+        historical_dates = list(
+            orm.select(
+                date for date in session.dates
+                if date.decision_left is not None
+                if date.decision_right is not None
+            ).prefetch(Date.left, Date.right).order_by(Date.id)
+        )
+
     if session:
         return await render_template(
             "session.html",
             session=session,
             dates=dates,
+            historical_dates=historical_dates,
             refresh_url=url_for("session_page_events", sessionid=sessionid),
         )
     abort(404)
@@ -218,6 +252,31 @@ async def matchmaker_page(sessionid: int, userid: int):
                 tableno = None
                 other_user = None
                 decision = None
+
+            if round := orm.select(round for round in session.rounds).order_by(orm.desc(Round.id)).first():
+                similarities = list(
+                    orm.select(
+                        similarity
+                        for similarity in round.similarities
+                        if similarity.subject == user
+                    )
+                    .prefetch(Similarity.object)
+                    .order_by(orm.desc(Similarity.weight))
+                )
+
+                recommendations = list(
+                    orm.select(
+                        recommendation
+                        for recommendation in round.recommendations
+                        if recommendation.subject == user
+                    )
+                    .prefetch(Recommendation.object)
+                    .order_by(orm.desc(Recommendation.weight))
+                )
+            else:
+                similarities = None
+                recommendations = None
+
     
     if session and user:
         await session_notify_subscribers(sessionid)
@@ -231,6 +290,9 @@ async def matchmaker_page(sessionid: int, userid: int):
             other_user=other_user,
             other_card=TAROT_CARDS[other_user.tarot] if other_user is not None else None,
             refresh_url=url_for('matchmaker_page_events', sessionid=sessionid),
+            round=round,
+            similarities=similarities,
+            recommendations=recommendations,
         )
     abort(404)
 
@@ -457,6 +519,32 @@ async def matchmake(sessionid: int):
     ]
     table_assignments = maxWeightMatching(table_graph, maxcardinality=True)
 
+    # record metadata
+    with orm.db_session:
+        round = Round(session=Session.get(id=sessionid))
+        for i in range(n):
+            for j in range(n):
+                Similarity(
+                    round=round,
+                    subject=User.get(id=all_users[i].id),
+                    object=User.get(id=all_users[j].id),
+                    weight=S[i, j],
+                )
+        
+        for i, j, w in graph:
+            Recommendation(
+                round=round,
+                subject=User.get(id=all_users[i].id),
+                object=User.get(id=all_users[j].id),
+                weight=w,
+            )
+            Recommendation(
+                round=round,
+                subject=User.get(id=all_users[j].id),
+                object=User.get(id=all_users[i].id),
+                weight=w,
+            )
+
     # perform the dates
     changed_users = set()
 
@@ -486,11 +574,7 @@ def get_current_date(sessionid: int, userid: int) -> Date | None:
     return orm.select(
         date for date in Date
         if date.session.id == sessionid
-        if date.left.id == userid
-    ).sort_by(orm.desc(Date.id)).first() or orm.select(
-        date for date in Date
-        if date.session.id == sessionid
-        if date.right.id == userid
+        if (date.left.id == userid or date.right.id == userid)
     ).sort_by(orm.desc(Date.id)).first()
 
 

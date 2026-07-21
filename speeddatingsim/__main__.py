@@ -1,10 +1,12 @@
-from collections.abc import Callable, Sequence
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable, Sequence
 import enum
 import collections
 import dataclasses
 import itertools
 import random
-from typing import Any, Final
+from typing import Any, Final, TypeAlias, TypeVar
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,17 +17,29 @@ from .mwmatching import maxWeightMatching
 from .names import names
 
 # sexuality: people have features, and a preference function
-type Feature = str
-type Features = set[Feature]
-type Preference = Callable[[Features], bool]
+Feature: TypeAlias = str
+Features: TypeAlias = set[Feature]
+Preference: TypeAlias = Callable[[Features], bool]
+
+T = TypeVar("T")
+
+def batched(iterable: Iterable[T], n: int, *, strict: bool = False) -> Iterable[tuple[T, ...]]:
+    # batched('ABCDEFG', 3) → ABC DEF G
+    if n < 1:
+        raise ValueError('n must be at least one')
+    iterator = iter(iterable)
+    while batch := tuple(itertools.islice(iterator, n)):
+        if strict and len(batch) != n:
+            raise ValueError('batched(): incomplete batch')
+        yield batch
 
 
 np.random.seed(100)
 random.seed(100)
 
-N_TRIALS: Final = 10
-BUDGET: Final = 30
-GRAPHS: Final = True
+N_TRIALS: Final = 100
+BUDGET: Final = 20
+GRAPHS: Final = False
 COHORT_SIZE: Final = 60
 
 
@@ -369,7 +383,7 @@ def make_pan_cohort(n: int = 60) -> list[Person]:
     return [Person(set(), OnlyIf(set())) for _ in range(n)]
 
 
-type PersonID = int
+PersonID: TypeAlias = int
 
 
 @dataclasses.dataclass
@@ -696,7 +710,7 @@ def report(cohorts: list[list[Person]], datess: list[list[Date]]):
         for cohort, n, date_was_match in zip(cohorts, n_matches, date_was_matchs):
             round_matches = [
                 sum(batch)
-                for batch in itertools.batched(date_was_match, len(cohort) // 2)
+                for batch in batched(date_was_match, len(cohort) // 2)
             ]
             print(" ", n, "\t", graph(round_matches, length=BUDGET))
 

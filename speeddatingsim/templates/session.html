@@ -52,4 +52,23 @@
     {% endfor %}
 </ul>
 {% endif %}
+{% if historical_dates %}
+<p>Date history:</p>
+<table>
+    <tr>
+        <th>Left</th>
+        <th>LD</th>
+        <th>RD</th>
+        <th>Right</th>
+    </tr>
+    {% for date in historical_dates %}
+    <tr>
+        <td>{{ date.left.name }}</td>
+        <td>{% if date.decision_left %}Yes{% else %}No{% endif %}</td>
+        <td>{% if date.decision_right %}Yes{% else %}No{% endif %}</td>
+        <td>{{ date.right.name }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endif %}
 {% endblock %}
