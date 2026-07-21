@@ -8,13 +8,13 @@
 <form action="{{ url_for('user_draw_adjective') }}" method="post" id="drawAdjectiveForm"></form>
 <form action="{{ url_for('user_decide', sessionid=session.id) }}" method="post" id="decideForm"></form>
 <div>
-    <p>Your table number is {{ tableno }}.</p>
+    <p style="text-align: center; font-size: 20pt;">Your table number is {{ tableno }}.</p>
 </div>
 <div class="columns">
     <div>
-        <h2>You</h2>
+        <h2>{{ user.name }} (You)</h2>
         <div class="formcontainer">
-            <input class="clickToEdit" name="name" value="{{ user.name }}" form="userEditForm"> (You)</h2>
+            <input class="clickToEdit" name="name" value="{{ user.name }}" form="userEditForm"></h2>
             <button type="submit" name="drawTarotButton" value="drawTarot" form="drawTarotForm">Redraw Tarot</button>
             <button type="submit" name="drawAdjectiveButton" value="drawAdjective" form="drawAdjectiveForm">Redraw
                 Adjective</button>
@@ -23,9 +23,8 @@
         <p><a href="{{ url_for('tarot_page', index=user.tarot) }}">Explain my tarot!</a></p>
     </div>
     <div>
-        <h2>Them</h2>
         {% if other_user %}
-        <h2>{{ other_user.name }}</h2>
+        <h2>{{ other_user.name }} (Them)</h2>
         {% if no_decision %}
         <div class="formcontainer">
             <button class="goodoption" type="submit" name="decide_yes" value="1" form="decideForm">Yes</button>

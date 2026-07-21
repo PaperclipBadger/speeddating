@@ -73,14 +73,17 @@ span.decided {
     display: flex;
     justify-items: stretch;
     align-items: stretch;
+    height: 3em;
 }
 
 .goodoption {
-    background-color: blue;
+    background-color: lightblue;
+    flex-grow: 1;
 }
 
 .badoption {
-    background-color: red;
+    background-color: pink;
+    flex-grow: 1;
 }
 
 table.vheader th {
