@@ -14,7 +14,7 @@ import tqdm
 from sklearn.manifold import TSNE
 
 from .mwmatching import maxWeightMatching
-from .names import names
+from .wordlists import NAMES
 
 # sexuality: people have features, and a preference function
 Feature: TypeAlias = str
@@ -98,7 +98,7 @@ class Person:
     pickiness: float = 0.5
 
     def __str__(self) -> str:
-        return names[self.id % len(names)]
+        return NAMES[self.id % len(NAMES)]
 
     @property
     def hidden_vec(self) -> np.ndarray:

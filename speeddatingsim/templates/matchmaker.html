@@ -8,6 +8,7 @@
 <form action="{{ url_for('user_draw_adjective') }}" method="post" id="drawAdjectiveForm"></form>
 <form action="{{ url_for('user_decide', sessionid=session.id) }}" method="post" id="decideForm"></form>
 <div>
+    <p style="text-align: center; font-size: 20pt;">Your recovery phrase is "{{ user.recovery_phrase }}".</p>
     <p style="text-align: center; font-size: 20pt;">Your table number is {{ tableno }}.</p>
 </div>
 <div class="columns">
