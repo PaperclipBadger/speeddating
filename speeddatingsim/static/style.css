@@ -92,4 +92,9 @@ span.decided {
 
 table.vheader th {
     writing-mode: vertical-rl;
+    text-align: right;
+}
+
+table.vheader td:first-child {
+    text-align: right;
 }

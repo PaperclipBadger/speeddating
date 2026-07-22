@@ -29,7 +29,9 @@ class SessionStatus(enum.IntEnum):
 
 class Session(db.Entity):
     name = orm.Required(str)
+    owner = orm.Required("User", reverse="owned")
     users = orm.Set("User")
+    banned = orm.Set("User", reverse="banned_from")
     dates = orm.Set("Date")
     rounds = orm.Set("Round")
     status = orm.Required(SessionStatus)
@@ -38,7 +40,9 @@ class Session(db.Entity):
 class User(db.Entity):
     name = orm.Required(str)
     tarot = orm.Required(int)
-    sessions = orm.Set(Session)
+    owned = orm.Set(Session, reverse="owner")
+    sessions = orm.Set(Session, reverse="users")
+    banned_from = orm.Set(Session, reverse="banned")
     lefts = orm.Set("Date", reverse="left")
     rights = orm.Set("Date", reverse="right")
     recommendations = orm.Set("Recommendation", reverse="subject")
@@ -118,7 +122,8 @@ async def index():
 
 
 @app.route("/sessions", methods=["GET", "POST"])
-async def sessions_page():
+@with_user
+async def sessions_page(userid: int):
     if request.method == "GET":
         with orm.db_session:
             sessions = list(Session.select())
@@ -131,7 +136,8 @@ async def sessions_page():
         with orm.db_session:
             session = Session(
                 name=(await request.form)["Session name"],
-                status=SessionStatus.PENDING
+                status=SessionStatus.PENDING,
+                owner=User.get(id=userid),
             )
         await sessions_notify_subscribers()
         return redirect(url_for('session_page', sessionid=session.id))
@@ -149,13 +155,18 @@ async def sessions_page_events():
 
 
 @app.route("/sessions/<int:sessionid>")
-async def session_page(sessionid: int):
+@with_user
+async def session_page(sessionid: int, userid: int):
     with orm.db_session:
         session = Session.get(id=sessionid)
         session.load()
 
         users = list(session.users.order_by(User.id))
         for user in users:
+            user.load()
+        
+        banned = list(session.banned.order_by(User.id))
+        for user in banned:
             user.load()
         
         tables = {}
@@ -183,13 +194,19 @@ async def session_page(sessionid: int):
                 decisions[date.left.id][date.right.id] = "Y" if date.decision_left else "N"
             if date.decision_right is not None:
                 decisions[date.right.id][date.left.id] = "Y" if date.decision_right else "N"
+        
+        user = User.get(id=userid)
+        user.load()
 
 
     if session:
         return await render_template(
             "session.html",
+            admin=(userid == session.owner.id),
+            user=user,
             session=session,
             users=users,
+            banned=banned,
             dates=dates,
             decisions=decisions,
             refresh_url=url_for("session_page_events", sessionid=sessionid),
@@ -213,23 +230,105 @@ async def session_page_events(sessionid: int):
 
 
 @app.route("/sessions/<int:sessionid>/start", methods=["POST"])
-async def session_start(sessionid: int):
+@with_user
+async def session_start(sessionid: int, userid: int):
     with orm.db_session:
         session = Session.get(id=sessionid)
+        session.owner.load()
     if session:
-        session.status = SessionStatus.ACTIVE
-        return redirect(url_for("session_page", sessionid=session.id))
+        if session.owner.id == userid:
+            session.status = SessionStatus.ACTIVE
+            return redirect(url_for("session_page", sessionid=session.id))
+        abort(401)
     abort(404)
 
 
 @app.route("/sessions/<int:sessionid>/end", methods=["POST"])
-async def session_end(sessionid: int):
+@with_user
+async def session_end(sessionid: int, userid: int):
     with orm.db_session:
         session = Session.get(id=sessionid)
+        session.owner.load()
     if session:
-        session.status = SessionStatus.CLOSED
-        return redirect(url_for("session_page", sessionid=session.id))
+        if session.owner.id == userid:
+            session.status = SessionStatus.CLOSED
+            return redirect(url_for("session_page", sessionid=session.id))
+        abort(401)
     abort(404)
+
+
+@app.route("/sessions/<int:sessionid>/kick", methods=["POST"])
+@with_user
+async def session_kick(sessionid: int, userid: int):
+    with orm.db_session:
+        session = Session.get(id=sessionid)
+        if session:
+            if session.owner.id != userid:
+                abort(401)
+            if (
+                (otheruserid := (await request.form).get("user"))
+                and (otheruser := User.get(id=otheruserid))
+            ):
+                session.users.remove(otheruser)
+                orm.delete(
+                    date for date in session.dates
+                    if (date.left == otheruser) or (date.right == otheruser) 
+                )
+
+    if session and otheruserid:
+        await session_notify_subscribers(sessionid)
+        return redirect(url_for("session_page", sessionid=session.id))
+    else:
+        abort(404)
+
+
+@app.route("/sessions/<int:sessionid>/ban", methods=["POST"])
+@with_user
+async def session_ban(sessionid: int, userid: int):
+    with orm.db_session:
+        session = Session.get(id=sessionid)
+        if session:
+            if session.owner.id != userid:
+                abort(401)
+            if (
+                (otheruserid := (await request.form).get("user"))
+                and (otheruser := User.get(id=int(otheruserid)))
+            ):
+                session.users.remove(otheruser)
+                session.banned.add(otheruser)
+                orm.delete(
+                    date for date in session.dates
+                    if (date.left == otheruser) or (date.right == otheruser) 
+                )
+
+    if session and otheruserid:
+        await user_notify_subscribers(int(otheruserid))
+        await session_notify_subscribers(sessionid)
+        return redirect(url_for("session_page", sessionid=session.id))
+    else:
+        abort(404)
+
+
+@app.route("/sessions/<int:sessionid>/unban", methods=["POST"])
+@with_user
+async def session_revoke_ban(sessionid: int, userid: int):
+    with orm.db_session:
+        session = Session.get(id=sessionid)
+        if session:
+            if session.owner.id != userid:
+                abort(401)
+            if (
+                (otheruserid := (await request.form).get("user"))
+                and (otheruser := User.get(id=int(otheruserid)))
+            ):
+                session.banned.remove(otheruser)
+
+    if session and otheruserid:
+        await user_notify_subscribers(int(otheruserid))
+        await session_notify_subscribers(sessionid)
+        return redirect(url_for("session_page", sessionid=session.id))
+    else:
+        abort(404)
 
 
 @app.route("/sessions/<int:sessionid>/matchmaker")
@@ -242,6 +341,15 @@ async def matchmaker_page(sessionid: int, userid: int):
         ):
             session.load()
             user.load()
+
+            if user in session.banned:
+                return await render_template(
+                    "banned.html",
+                    session=session,
+                    user=user,
+                    refresh_url=url_for('matchmaker_page_events', sessionid=sessionid),
+                )
+
             session.users.add(user)
             if date := get_current_date(sessionid, userid):
                 tableno = date.tableno
@@ -306,6 +414,13 @@ async def matchmaker_page(sessionid: int, userid: int):
 async def matchmaker_page_events(sessionid: int, userid: int):
     event = asyncio.Event()
     await user_subscribe_to_changes(userid, event)
+    with orm.db_session:
+        if date := get_current_date(sessionid, userid):
+            if date.left.id == userid:
+                other_user = date.right
+            else:
+                other_user = date.left
+            await user_subscribe_to_changes(other_user.id, event)
     return Response(
         stream_notifications(event, user_unsubscribe(userid, event)),
         mimetype="text/event-stream",

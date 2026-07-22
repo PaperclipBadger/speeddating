@@ -8,7 +8,7 @@
     {% if refresh_url %}
     <script>
         const es = new EventSource("{{ refresh_url }}");
-        es.addEventListener("update", () => location.reload());
+        es.addEventListener("update", () => { console.log("update!"); location.reload() });
 
         // Reconnect automatically if the connection drops — the browser does this
         // for you with EventSource, but you can add a visibility handler too:
