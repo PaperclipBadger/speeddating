@@ -15,6 +15,7 @@ from pony import orm
 from speeddatingsim.feistel import permute, unpermute
 from speeddatingsim.mwmatching import maxWeightMatching
 from speeddatingsim.tarot import TAROT_CARDS
+from speeddatingsim.prompts import CONTACT_PROMPTS, CONVO_PROMPTS
 from speeddatingsim.wordlists import ADJECTIVES, NOUNS, VERBS
 
 
@@ -389,7 +390,9 @@ async def matchmaker_page(sessionid: int, userid: int):
                 similarities = None
                 recommendations = None
 
-    
+    contact_prompt = random.choice(CONTACT_PROMPTS)
+    convo_prompt = random.choice(CONVO_PROMPTS)
+
     if session and user:
         await session_notify_subscribers(sessionid)
         return await render_template(
@@ -405,6 +408,8 @@ async def matchmaker_page(sessionid: int, userid: int):
             round=round,
             similarities=similarities,
             recommendations=recommendations,
+            contact_prompt=contact_prompt,
+            convo_prompt=convo_prompt,
         )
     abort(404)
 
