@@ -27,7 +27,7 @@
             <h1><a href="{{ url_for('index') }}">Blaine's Queer Speed Matching</a></h1>
         </div>
         <div class="menu">
-            Profile Pic Here
+            <a href="{{ url_for('user_page') }}">{% if user %}{{ user.name }}{% else %}Guest{% endif %}</a>
         </div>
     </div>
     <div id="content">

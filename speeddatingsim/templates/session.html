@@ -42,15 +42,6 @@
     </tr>
     {% endfor %}
 </table>
-{% else %}
-<p>{{ users|length }} user{% if users|length > 1 %}s have{% else %} has{% endif %} joined the
-    session:
-</p>
-<ul>
-    {% for user in users %}
-    <li>{{ user.name }}</li>
-    {% endfor %}
-</ul>
 {% endif %}
 {% if decisions %}
 <p>Date history:</p>
@@ -71,4 +62,11 @@
     {% endfor %}
 </table>
 {% endif %}
+<p>{{ users|length }} user{% if users|length > 1 %}s have{% else %} has{% endif %} joined the session:</p>
+<ul>
+    {% for user in users %}
+    <li>{{ user.name }}</li>
+    {% endfor %}
+</ul>
+
 {% endblock %}

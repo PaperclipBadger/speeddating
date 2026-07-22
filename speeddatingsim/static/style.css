@@ -76,6 +76,10 @@ span.decided {
     height: 3em;
 }
 
+.textentry {
+    flex-grow: 1;
+}
+
 .goodoption {
     background-color: lightblue;
     flex-grow: 1;

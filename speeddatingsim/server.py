@@ -12,6 +12,7 @@ import jinja2.filters
 from quart import Quart, Response, abort, render_template, redirect, jsonify, url_for, make_response, request
 from pony import orm
 
+from speeddatingsim.feistel import permute, unpermute
 from speeddatingsim.mwmatching import maxWeightMatching
 from speeddatingsim.tarot import TAROT_CARDS
 from speeddatingsim.wordlists import ADJECTIVES, NOUNS, VERBS
@@ -35,7 +36,6 @@ class Session(db.Entity):
 
 
 class User(db.Entity):
-    recovery_phrase = orm.Required(str)
     name = orm.Required(str)
     tarot = orm.Required(int)
     sessions = orm.Set(Session)
@@ -89,10 +89,10 @@ def with_user(func):
             ):
                 tarot_card = random.choice(TAROT_CARDS)
                 adjective = random.choice(ADJECTIVES)
+
                 user = User(
                     name=f"{adjective.title()} {tarot_card.noun}",
                     tarot=tarot_card.index,
-                    recovery_phrase=make_recovery_phrase(),
                 )
                 user.flush()
         response = await make_response(await func(*args, userid=user.id, **kwargs))
@@ -351,6 +351,40 @@ async def user_decide(sessionid: int, userid: int):
     await user_notify_subscribers(user.id)
     await session_notify_subscribers(sessionid)
     return redirect(request.referrer or url_for('matchmaker_page', sessionid=sessionid))
+
+
+@app.route("/user")
+@with_user
+async def user_page(userid: int):
+    with orm.db_session:
+        user = User.get(id=userid)
+        user.load()
+
+    return await render_template(
+        "user.html",
+        user=user,
+        recovery_phrase=id_to_recovery_phrase(user.id),
+    )
+
+
+@app.route("/user/su", methods=["POST"])
+async def user_change_identity():
+    if recovery_phrase := (await request.form).get("phrase"):
+        try:
+            tgt_id = recovery_phrase_to_id(recovery_phrase)
+        except LookupError:
+            return redirect(request.referrer or url_for('user_page'))
+
+        with orm.db_session:
+            user = User.get(id=tgt_id)
+            if not user:
+                return redirect(request.referrer or url_for('user_page'))
+        
+        response = redirect(request.referrer or url_for('user_page'))
+        response.set_cookie("userid", str(user.id))
+        return response
+
+    return redirect(request.referrer or url_for('user_page'))
 
 
 @app.route("/user/draw_tarot", methods=["POST"])
@@ -654,16 +688,61 @@ def init_db():
     db.generate_mapping(create_tables=True)
 
 
-def make_recovery_phrase():
-    adjective = random.choice(ADJECTIVES)
-    noun = random.choice(NOUNS)
-    verb = random.choice(VERBS)
-    adjective2 = random.choice(ADJECTIVES)
+M = len(ADJECTIVES) * len(NOUNS) * len(VERBS) * len(ADJECTIVES)
+KEY = b'obstreperous nightmare'
+
+
+def id_to_recovery_phrase(userid: int) -> str:
+    x = permute(userid, M, KEY)
+    i, x = x % len(ADJECTIVES), x // len(ADJECTIVES)
+    j, x = x % len(NOUNS), x // len(NOUNS)
+    k, x = x % len(VERBS), x // len(VERBS)
+    l, x = x % len(ADJECTIVES), x // len(ADJECTIVES)
+
+    adjective = ADJECTIVES[i]
+    noun = NOUNS[j]
+    verb = VERBS[k]
+    adjective2 = ADJECTIVES[l]
     if adjective2.endswith("y"):
         adverb = adjective2[:-1] + "ily"
     else:
         adverb = adjective2 + "ly"
     return f"{adjective} {noun} {verb} {adverb}".lower()
+
+
+def recovery_phrase_to_id(phrase: str) -> int:
+    try:
+        adjective, noun, verb, adverb = phrase.split()
+    except ValueError:
+        raise LookupError("could not parse recovery phrase")
+    
+    try:
+        i = ADJECTIVES.index(adjective.title())
+    except ValueError:
+        raise LookupError("adjective not in list")
+    
+    try:
+        j = NOUNS.index(noun.title())
+    except ValueError:
+        raise LookupError("noun not in list")
+    
+    try:
+        k = VERBS.index(verb.title())
+    except ValueError:
+        raise LookupError("verb not in list")
+
+    try:
+        assert adverb.endswith("ly")
+        if adverb.endswith("ily"):
+            adjective2 = adverb[:-3] + "y"
+        else:
+            adjective2 = adverb[:-2]
+        l = ADJECTIVES.index(adjective2.title())
+    except (AssertionError, ValueError):
+        raise LookupError("adverb not in list")
+    
+    x = i + len(ADJECTIVES) * (j + len(NOUNS) * (k + len(VERBS) * l))
+    return unpermute(x, M, KEY)
 
 
 if __name__ == "__main__":
