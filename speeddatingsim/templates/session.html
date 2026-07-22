@@ -59,12 +59,12 @@
     {% for other in users %}
     <li>{{ other.name }}
         {% if admin %}
-        <form action="{{ url_for('session_kick', sessionid=session.id) }}" method="post"
+        <form action="{{ url_for('session_kick', sessionid=session.id) }}" method="POST"
             style="display: inline !important;">
             <input hidden name="user" value="{{ other.id }}">
             <input type="submit" value="kick">
         </form>
-        <form action="{{ url_for('session_ban', sessionid=session.id) }}" method="post"
+        <form action="{{ url_for('session_ban', sessionid=session.id) }}" method="POST"
             style="display: inline !important;">
             <input hidden name="user" value="{{ other.id }}">
             <input type="submit" value="ban">
@@ -84,7 +84,7 @@
     {% for other in banned %}
     <li>{{ other.name }}
         {% if admin %}
-        <form action="{{ url_for('session_revoke_ban', sessionid=session.id) }}" method="post"
+        <form action="{{ url_for('session_revoke_ban', sessionid=session.id) }}" method="POST"
             style="display: inline !important;">
             <input hidden name="user" value="{{ other.id }}">
             <input type="submit" value="revoke ban">
@@ -95,24 +95,59 @@
 </ul>
 {% endif %}
 
+<h3>Date history:</h3>
 {% if decisions %}
-<p>Date history:</p>
-<table class="vheader">
-    <tr>
-        <th></th>
+{% if admin %}
+<form action="{{ url_for('session_edit_dates', sessionid=session.id) }}" method="POST">
+    {% endif %}
+    <table class="vheader">
+        <tr>
+            <th></th>
+            {% for user in users %}
+            <th>{{ user.name }}</th>
+            {% endfor %}
+        </tr>
         {% for user in users %}
-        <th>{{ user.name }}</th>
+        <tr>
+            <td>{{ user.name }}</td>
+            {% for other in users %}
+            <td>
+                {% if admin %}
+                <select name="decision_{{ user.id }}_{{ other.id }}">
+                    <option value="Y" {% if decisions[user.id][other.id]=="Y" %}selected{% endif %}>Y</option>
+                    <option value="N" {% if decisions[user.id][other.id]=="N" %}selected{% endif %}>N</option>
+                    <option value="-" {% if not decisions[user.id][other.id] %}selected{% endif %}>-</option>
+                </select>
+                {% else %}
+                {{ decisions[user.id][other.id] }}
+                {% endif %}
+            </td>
+            {% endfor %}
+        </tr>
         {% endfor %}
-    </tr>
-    {% for user in users %}
-    <tr>
-        <td>{{ user.name }}</td>
-        {% for other in users %}
-        <td>{{ decisions[user.id][other.id] }}</td>
-        {% endfor %}
-    </tr>
-    {% endfor %}
-</table>
+    </table>
+    {% if admin %}
+    <input type="submit">
+</form>
 {% endif %}
+{% endif %}
+{% if all_dates %}
+<ul>
+    {% for date in all_dates %}
+    <li>
+        {% if date.tableno < 0 %} <span style="color: red;">(virtual)</span>
+            {% endif %}
+            {{ date.left.name }} and {{ date.right.name }}
+            {% if admin %}
+            <form action="{{ url_for('session_delete_date', sessionid=session.id, dateid=date.id) }}" method="POST"
+                style="display: inline !important;">
+                <input type="submit" value="delete">
+            </form>
+            {% endif %}
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}
+
 
 {% endblock %}

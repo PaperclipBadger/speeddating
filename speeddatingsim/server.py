@@ -179,6 +179,8 @@ async def session_page(sessionid: int, userid: int):
         
         tables = {}
         for date in session.dates:
+            if date.tableno < 0:
+                continue
             if not (other := tables.get(date.tableno)) or date.id > other.id:
                 tables[date.tableno] = date
         
@@ -215,6 +217,12 @@ async def session_page(sessionid: int, userid: int):
         for a, b in matches:
             a.load()
             b.load()
+        
+        all_dates = list(session.dates.order_by(Date.id))
+        for date in all_dates:
+            date.load()
+            date.left.load()
+            date.right.load()
 
     if session:
         return await render_template(
@@ -226,6 +234,7 @@ async def session_page(sessionid: int, userid: int):
             banned=banned,
             matches=matches,
             dates=dates,
+            all_dates=all_dates,
             decisions=decisions,
             refresh_url=url_for("session_page_events", sessionid=sessionid),
         )
@@ -343,6 +352,107 @@ async def session_revoke_ban(sessionid: int, userid: int):
 
     if session and otheruserid:
         await user_notify_subscribers(int(otheruserid))
+        await session_notify_subscribers(sessionid)
+        return redirect(url_for("session_page", sessionid=session.id))
+    else:
+        abort(404)
+
+
+@app.route("/sessions/<int:sessionid>/dates", methods=["POST"])
+@with_user
+async def session_edit_dates(sessionid: int, userid: int):
+    form = await request.form
+
+    def get_date(left, right) -> Date | None:
+        try:
+            return Date.get(
+                session=Session.get(id=sessionid),
+                left=left,
+                right=right,
+            )
+        except orm.MultipleObjectsFoundError:
+            return None
+
+    users = []
+
+    with orm.db_session:
+        session = Session.get(id=sessionid)
+        if session:
+            if session.owner.id != userid:
+                abort(401)
+
+    for key, value in form.items():
+        if match := re.match(r"\Adecision_(\d+)_(\d+)\Z", key):
+            subjectid, objectid = match.groups()
+            with orm.db_session:
+                subject = User.get(id=int(subjectid))
+                object_ = User.get(id=int(objectid))
+
+                if date := get_date(subject, object_):
+                    match value:
+                        case "Y":
+                            date.decision_left = True
+                        case "N":
+                            date.decision_left = False
+                        case "-":
+                            date.decision_left = None
+                    users.append(subject.id)
+                    users.append(object_.id)
+                elif date := get_date(object_, subject):
+                    match value:
+                        case "Y":
+                            date.decision_right = True
+                        case "N":
+                            date.decision_right = False
+                        case "-":
+                            date.decision_right = None
+                    users.append(subject.id)
+                    users.append(object_.id)
+                elif value != "-":
+                    date = Date(
+                        session=Session.get(id=sessionid),
+                        tableno=-1,
+                        left=subject,
+                        right=object_,
+                    )
+                    match value:
+                        case "Y":
+                            date.decision_left = True
+                        case "N":
+                            date.decision_left = False
+                        case "-":
+                            date.decision_left = None
+                    users.append(subject.id)
+                    users.append(object_.id)
+
+    if session:
+        for userid in users:
+            await user_notify_subscribers(userid)
+        await session_notify_subscribers(sessionid)
+        return redirect(url_for("session_page", sessionid=session.id))
+    else:
+        abort(404)
+
+
+@app.route("/sessions/<int:sessionid>/dates/<int:dateid>", methods=["POST"])
+@with_user
+async def session_delete_date(sessionid: int, userid: int, dateid: int):
+    users = []
+
+    with orm.db_session:
+        session = Session.get(id=sessionid)
+        if session:
+            if session.owner.id != userid:
+                abort(401)
+
+            if date := Date.get(id=dateid, session=session):
+                users.append(date.left.id)
+                users.append(date.right.id)
+                date.delete()
+
+    if session:
+        for userid in users:
+            await user_notify_subscribers(userid)
         await session_notify_subscribers(sessionid)
         return redirect(url_for("session_page", sessionid=session.id))
     else:
