@@ -152,7 +152,7 @@ ADJECTIVES = [
     "Rambunctious",
     "Rancorous",
     "Rare",
-    "Raptuorous",
+    "Rapturous",
     "Refined",
     "Remarkable",
     "Resolute",
