@@ -113,11 +113,14 @@
             {% for other in users %}
             <td>
                 {% if admin %}
+                {% if user.id != other.id %}
                 <select name="decision_{{ user.id }}_{{ other.id }}">
                     <option value="Y" {% if decisions[user.id][other.id]=="Y" %}selected{% endif %}>Y</option>
                     <option value="N" {% if decisions[user.id][other.id]=="N" %}selected{% endif %}>N</option>
+                    <option value="?" {% if decisions[user.id][other.id]=="?" %}selected{% endif %}>?</option>
                     <option value="-" {% if not decisions[user.id][other.id] %}selected{% endif %}>-</option>
                 </select>
+                {% endif %}
                 {% else %}
                 {{ decisions[user.id][other.id] }}
                 {% endif %}

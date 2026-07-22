@@ -186,12 +186,12 @@ async def session_page(sessionid: int, userid: int):
         
         dates = sorted(tables.values(), key=lambda date: date.tableno)
 
-        historical_dates = list(
-            orm.select(
-                date for date in session.dates
-                if date.decision_left is not None or date.decision_right is not None
-            )
-        )
+        all_dates = list(session.dates.order_by(Date.id))
+        for date in all_dates:
+            date.load()
+            date.left.load()
+            date.right.load()
+
         decisions = {
             user.id: {
                 other.id: ""
@@ -199,11 +199,15 @@ async def session_page(sessionid: int, userid: int):
             }
             for user in session.users
         }
-        for date in historical_dates:
+        for date in all_dates:
             if date.decision_left is not None:
                 decisions[date.left.id][date.right.id] = "Y" if date.decision_left else "N"
+            else:
+                decisions[date.left.id][date.right.id] = "?"
             if date.decision_right is not None:
                 decisions[date.right.id][date.left.id] = "Y" if date.decision_right else "N"
+            else:
+                decisions[date.right.id][date.left.id] = "?"
         
         user = User.get(id=userid)
         user.load()
@@ -218,12 +222,6 @@ async def session_page(sessionid: int, userid: int):
             a.load()
             b.load()
         
-        all_dates = list(session.dates.order_by(Date.id))
-        for date in all_dates:
-            date.load()
-            date.left.load()
-            date.right.load()
-
     if session:
         return await render_template(
             "session.html",
@@ -394,7 +392,7 @@ async def session_edit_dates(sessionid: int, userid: int):
                             date.decision_left = True
                         case "N":
                             date.decision_left = False
-                        case "-":
+                        case "-" | "?":
                             date.decision_left = None
                     users.append(subject.id)
                     users.append(object_.id)
@@ -404,7 +402,7 @@ async def session_edit_dates(sessionid: int, userid: int):
                             date.decision_right = True
                         case "N":
                             date.decision_right = False
-                        case "-":
+                        case "-" | "?":
                             date.decision_right = None
                     users.append(subject.id)
                     users.append(object_.id)
@@ -420,7 +418,7 @@ async def session_edit_dates(sessionid: int, userid: int):
                             date.decision_left = True
                         case "N":
                             date.decision_left = False
-                        case "-":
+                        case "?":
                             date.decision_left = None
                     users.append(subject.id)
                     users.append(object_.id)
