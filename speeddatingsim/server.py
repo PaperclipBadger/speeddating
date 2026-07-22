@@ -167,6 +167,7 @@ async def sessions_page_events():
 async def session_page(sessionid: int, userid: int):
     with orm.db_session:
         session = Session.get(id=sessionid)
+        session.owner.load()
         session.load()
 
         users = list(session.users.order_by(User.id))
