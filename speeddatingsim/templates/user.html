@@ -1,0 +1,16 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<h2>{{ user.name }}</h2>
+<p>Your recovery phrase is:</p>
+<p style="text-align: center; font-size: 24pt;">{{ recovery_phrase }}</p>
+
+<h2>Switch User</h2>
+<form action="{{ url_for('user_change_identity') }}" method="post" id="userChangeIdentity">
+    <div class="formcontainer" style="width: 100%">
+        <input name="phrase" class="textentry" value="{{ recovery_phrase }}" />
+        <input type="submit" />
+    </div>
+</form>
+
+{% endblock %}
