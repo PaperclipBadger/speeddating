@@ -224,7 +224,7 @@ NOUNS = [
     "Angles",
     "Azaleas",
     "Bats",
-    "Bells"
+    "Bells",
     "Beverages",
     "Books",
     "Cats",
@@ -347,7 +347,7 @@ VERBS = [
     "Gather",
     "Gyrate",
     "Help",
-    "Hear"
+    "Hear",
     "Hunt",
     "Hydrate",
     "Infer",

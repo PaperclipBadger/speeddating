@@ -117,6 +117,11 @@ async def make_qr(data: str) -> str:
     return jinja2.filters.do_mark_safe(qr.to_string().decode())
 
 
+@app.template_filter('recovery_phrase')
+async def make_recovery_phrase(data: int) -> str:
+    return id_to_recovery_phrase(data)
+
+
 @app.route("/")
 async def index():
     with orm.db_session:

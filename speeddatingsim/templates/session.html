@@ -13,12 +13,14 @@
 <h2>{{ session.name }}</h2>
 <p>Owner: {{ session.owner.name }} {% if admin %}<span style="color: red">(you!)</span>{% endif %}</p>
 
+{% if admin %}
 <form action="{{ url_for('matchmake', sessionid=session.id) }}" method="post">
     <input type="submit" value="Run Matchmaking">
 </form>
 <form action="{{ url_for('session_end', sessionid=session.id) }}" method="post">
     <input type="submit" value="stop">
 </form>
+{% endif %}
 
 {% if dates %}
 <table>
@@ -67,6 +69,10 @@
             <input hidden name="user" value="{{ other.id }}">
             <input type="submit" value="ban">
         </form>
+        <details>
+            <summary>Recovery Phrase</summary>
+            {{ other.id|recovery_phrase }}
+        </details>
         {% endif %}
     </li>
     {% endfor %}
