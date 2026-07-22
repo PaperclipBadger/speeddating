@@ -44,24 +44,13 @@
     {% endfor %}
 </table>
 {% endif %}
-{% if decisions %}
-<p>Date history:</p>
-<table class="vheader">
-    <tr>
-        <th></th>
-        {% for user in users %}
-        <th>{{ user.name }}</th>
-        {% endfor %}
-    </tr>
-    {% for user in users %}
-    <tr>
-        <td>{{ user.name }}</td>
-        {% for other in users %}
-        <td>{{ decisions[user.id][other.id] }}</td>
-        {% endfor %}
-    </tr>
+{% if matches %}
+<p>Found {{ matches|length }} match{% if matches|length != 1 %}es{% endif %} so far:</p>
+<ul>
+    {% for left, right in matches %}
+    <li><b>{{ left.name }}</b> and <b>{{ right.name }}</b></li>
     {% endfor %}
-</table>
+</ul>
 {% endif %}
 <p>{{ users|length }} user{% if users|length > 1 %}s have{% else %} has{% endif %} joined the session:</p>
 <ul>
@@ -98,6 +87,26 @@
     </li>
     {% endfor %}
 </ul>
+{% endif %}
+
+{% if decisions %}
+<p>Date history:</p>
+<table class="vheader">
+    <tr>
+        <th></th>
+        {% for user in users %}
+        <th>{{ user.name }}</th>
+        {% endfor %}
+    </tr>
+    {% for user in users %}
+    <tr>
+        <td>{{ user.name }}</td>
+        {% for other in users %}
+        <td>{{ decisions[user.id][other.id] }}</td>
+        {% endfor %}
+    </tr>
+    {% endfor %}
+</table>
 {% endif %}
 
 {% endblock %}

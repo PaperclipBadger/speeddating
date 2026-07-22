@@ -2,6 +2,43 @@
 
 {% block content %}
 <h2>{{ user.name }}</h2>
+{% if user.sessions %}
+<p>You are part of {{ user.sessions|length }} session{% if user.sessions|length != 1%}s{% endif %}</p>
+<ul>
+    {% for session in user.sessions %}
+    <li><a href="{{ url_for('matchmaker_page', sessionid=session.id) }}">{{ session.name }}</a></li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+{% if matches %}
+<p>You have {{ matches|length }} match{% if matches|length != 1 %}es{% endif %}</p>
+<ul>
+    {% for other in matches %}
+    <li><b>{{ other.name }}:</b> {{ other.details }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+<h2>Edit</h2>
+<form action="{{ url_for('user_edit') }}" method="post" id="userEditForm">
+    <input type="submit" hidden />
+</form>
+<form action="{{ url_for('user_draw_tarot') }}" method="post" id="drawTarotForm"></form>
+<form action="{{ url_for('user_draw_adjective') }}" method="post" id="drawAdjectiveForm"></form>
+<div class="formcontainer">
+    <input class="clickToEdit textentry" name="name" value="{{ user.name }}" form="userEditForm"></h2>
+    <button type="submit" name="drawTarotButton" value="drawTarot" form="drawTarotForm">Redraw Tarot</button>
+    <button type="submit" name="drawAdjectiveButton" value="drawAdjective" form="drawAdjectiveForm">Redraw
+        Adjective</button>
+</div>
+<p>These details will be shown to people you match with:</p>
+<div class="formcontainer">
+    <input class="clickToEdit textentry" name="details" value="{{ user.details }}" form="userEditForm"></h2>
+</div>
+<img src="{{ url_for('static', filename=card.svg_filename) }}" alt="image here">
+<p><a href="{{ url_for('tarot_page', index=user.tarot) }}">Explain my tarot!</a></p>
+
 <p>Your recovery phrase is:</p>
 <p style="text-align: center; font-size: 24pt;">{{ recovery_phrase }}</p>
 
@@ -12,5 +49,4 @@
         <input type="submit" />
     </div>
 </form>
-
 {% endblock %}

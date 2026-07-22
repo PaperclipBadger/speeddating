@@ -41,6 +41,7 @@ class Session(db.Entity):
 class User(db.Entity):
     name = orm.Required(str)
     tarot = orm.Required(int)
+    details = orm.Required(str)
     owned = orm.Set(Session, reverse="owner")
     sessions = orm.Set(Session, reverse="users")
     banned_from = orm.Set(Session, reverse="banned")
@@ -98,6 +99,7 @@ def with_user(func):
                 user = User(
                     name=f"{adjective.title()} {tarot_card.noun}",
                     tarot=tarot_card.index,
+                    details="This user has not given contact information.",
                 )
                 user.flush()
         response = await make_response(await func(*args, userid=user.id, **kwargs))
@@ -199,6 +201,15 @@ async def session_page(sessionid: int, userid: int):
         user = User.get(id=userid)
         user.load()
 
+        matches = [
+            (date.left, date.right)
+            for date in session.dates
+            if date.decision_left and date.decision_right
+        ]
+        matches.sort(key=lambda p: (p[0].id, p[1].id))
+        for a, b in matches:
+            a.load()
+            b.load()
 
     if session:
         return await render_template(
@@ -208,6 +219,7 @@ async def session_page(sessionid: int, userid: int):
             session=session,
             users=users,
             banned=banned,
+            matches=matches,
             dates=dates,
             decisions=decisions,
             refresh_url=url_for("session_page_events", sessionid=sessionid),
@@ -389,6 +401,10 @@ async def matchmaker_page(sessionid: int, userid: int):
             else:
                 similarities = None
                 recommendations = None
+            
+            matches = get_matches(userid, sessionid)
+            for match in matches:
+                match.load()
 
     contact_prompt = random.choice(CONTACT_PROMPTS)
     convo_prompt = random.choice(CONVO_PROMPTS)
@@ -410,6 +426,7 @@ async def matchmaker_page(sessionid: int, userid: int):
             recommendations=recommendations,
             contact_prompt=contact_prompt,
             convo_prompt=convo_prompt,
+            matches=matches,
         )
     abort(404)
 
@@ -420,12 +437,9 @@ async def matchmaker_page_events(sessionid: int, userid: int):
     event = asyncio.Event()
     await user_subscribe_to_changes(userid, event)
     with orm.db_session:
-        if date := get_current_date(sessionid, userid):
-            if date.left.id == userid:
-                other_user = date.right
-            else:
-                other_user = date.left
-            await user_subscribe_to_changes(other_user.id, event)
+        other_user = get_other_user(sessionid, userid)
+    if other_user:
+        await user_subscribe_to_changes(other_user.id, event)
     return Response(
         stream_notifications(event, user_unsubscribe(userid, event)),
         mimetype="text/event-stream",
@@ -473,16 +487,25 @@ async def user_decide(sessionid: int, userid: int):
     return redirect(request.referrer or url_for('matchmaker_page', sessionid=sessionid))
 
 
-@app.route("/user")
+@app.route("/user", methods=["GET"])
 @with_user
 async def user_page(userid: int):
     with orm.db_session:
         user = User.get(id=userid)
         user.load()
+        user.sessions.load()
+        for session in user.sessions:
+            session.load()
+
+        matches = get_matches(userid)
+        for match in matches:
+            match.load()
 
     return await render_template(
         "user.html",
         user=user,
+        matches=matches,
+        card=TAROT_CARDS[user.tarot],
         recovery_phrase=id_to_recovery_phrase(user.id),
     )
 
@@ -553,6 +576,16 @@ async def user_edit(userid: int):
             if not user:
                 abort(500)
             user.name = new_name
+            user.sessions.load()
+        await user_notify_subscribers(user.id)
+        for session in user.sessions:
+            await session_notify_subscribers(session.id)
+    if new_details := (await request.form).get("details"):
+        with orm.db_session:
+            user = User.get(id=userid)
+            if not user:
+                abort(500)
+            user.details = new_details
             user.sessions.load()
         await user_notify_subscribers(user.id)
         for session in user.sessions:
@@ -744,6 +777,30 @@ def get_other_user(sessionid: int, userid: int) -> User | None:
         if date.right.id == userid:
             return date.left
     return None
+
+
+def get_matches(userid: int, sessionid: int | None = None) -> list[User]:
+    if sessionid is not None:
+        session = Session.get(id=sessionid)
+        if session:
+            dates = session.dates
+    else:
+        dates = Date
+
+    lefts = orm.select(
+        date.left for date in dates
+        if date.right.id == userid
+        if date.decision_left
+        if date.decision_right
+    )
+    rights = orm.select(
+        date.right for date in dates
+        if date.left.id == userid
+        if date.decision_left
+        if date.decision_right
+    )
+    return sorted([*lefts, *rights], key=lambda user: user.id)
+
     
 
 user_notify_on_changes: dict[int, set[asyncio.Event]] = {}

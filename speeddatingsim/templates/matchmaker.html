@@ -10,6 +10,8 @@
 <div>
     <p style="text-align: center; font-size: 20pt;">Your table number is {{ tableno }}.</p>
 </div>
+<p><b>Contact prompt:</b> {{ contact_prompt }}</p>
+<p><b>Conversation prompt:</b> &OpenCurlyDoubleQuote;{{ convo_prompt }}&CloseCurlyDoubleQuote;</p>
 <div class="columns">
     <div>
         <h2>{{ user.name }} (You)</h2>
@@ -19,8 +21,11 @@
             <button type="submit" name="drawAdjectiveButton" value="drawAdjective" form="drawAdjectiveForm">Redraw
                 Adjective</button>
         </div>
-        <img src="{{ url_for('static', filename=card.svg_filename) }}" alt="image here">
-        <p><a href="{{ url_for('tarot_page', index=user.tarot) }}">Explain my tarot!</a></p>
+        <h3>Details for matches</h3>
+        <p>These details will be shown to people you match with:</p>
+        <div class="formcontainer">
+            <input class="clickToEdit textentry" name="details" value="{{ user.details }}" form="userEditForm"></h2>
+        </div>
     </div>
     <div>
         {% if other_user %}
@@ -33,15 +38,31 @@
         {% else %}
         <p>Thanks for casting judgement!</p>
         {% endif %}
-        <img src="{{ url_for('static', filename=other_card.svg_filename) }}" alt="image here">
-        <p><a href="{{ url_for('tarot_page', index=other_user.tarot) }}">Explain their tarot!</a></p>
         {% else %}
         <p>Waiting for the host to run matchmaking...</p>
         {% endif %}
     </div>
 </div>
-<p><b>Contact prompt:</b> {{ contact_prompt }}</p>
-<p><b>Conversation prompt:</b> &OpenCurlyDoubleQuote;{{ convo_prompt }}&CloseCurlyDoubleQuote;</p>
+<div class="columns">
+    <div>
+        <img src="{{ url_for('static', filename=card.svg_filename) }}" alt="image here">
+        <p><a href="{{ url_for('tarot_page', index=user.tarot) }}">Explain my tarot!</a></p>
+    </div>
+    <div>
+        {% if other_user %}
+        <img src="{{ url_for('static', filename=other_card.svg_filename) }}" alt="image here">
+        <p><a href="{{ url_for('tarot_page', index=other_user.tarot) }}">Explain their tarot!</a></p>
+        {% endif %}
+    </div>
+</div>
+<p>You have {{ matches|length }} match{% if matches|length != 0 %}es{% endif %} this session.</p>
+{% if matches %}
+<ul>
+    {% for other in matches %}
+    <li><b>{{ other.name }}:</b> {{ other.details }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
 {% if recommendations %}
 <div>
     <h3>Matching Statistics</h3>
