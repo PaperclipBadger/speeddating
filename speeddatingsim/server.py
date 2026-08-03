@@ -132,7 +132,8 @@ async def login():
             and (user := User.get(id=int(userid)))
         ):
             return redirect(url_for("user_page"))
-    return await render_template("login.html")
+    print(OAUTH_PROVIDERS)
+    return await render_template("login.html", oauth_providers=list(OAUTH_PROVIDERS))
 
 
 @app.route("/login/<provider>")
@@ -175,9 +176,11 @@ async def oauth_callback(provider: str):
     email = info.get("email")
 
     with orm.db_session:
-        account = OAuthAccount.get(provider=provider, sub=sub)
-        if account:
+        if account := OAuthAccount.get(provider=provider, sub=sub):
             user = account.user
+        elif email and (other_account := OAuthAccount.get(email=email)):
+            user = other_account.user
+            OAuthAccount(user=user, provider=provider, sub=sub, email=email)
         else:
             # optionally merge into the anonymous user who initiated login
             linking_id = session.get("linking_userid")
@@ -185,13 +188,25 @@ async def oauth_callback(provider: str):
             if not user:
                 tarot_card = random.choice(TAROT_CARDS)
                 adjective = random.choice(ADJECTIVES)
+
+                name: str
+                if 'given_name' in info:
+                    name = info['given_name']
+                elif 'name' in info:
+                    name = info['name'] 
+                else:
+                    name = f"{adjective.title()} {tarot_card.noun}"
+
                 user = User(
-                    name=f"{adjective.title()} {tarot_card.noun}",
+                    name=name,
                     tarot=tarot_card.index,
                     details="This user has not given contact information.",
                 )
                 user.flush()
-            OAuthAccount(user=user, provider=provider, sub=sub, email=email or "")
+
+            oauth_account = OAuthAccount(user=user, provider=provider, sub=sub)
+            if email:
+                oauth_account.email = email
 
         userid = user.id
 

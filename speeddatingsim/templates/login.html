@@ -2,8 +2,14 @@
 
 {% block content %}
 <h2>Log in with OAuth2</h2>
-<ul>
-    <li><a href="{{ url_for('oauth_login', provider='google') }}">Log in with Google</a></li>
+<ul class="buttonlist">
+    {% for provider in oauth_providers %}
+    <li class="listbutton">
+        <a href="{{ url_for('oauth_login', provider=provider) }}">
+            <img src="{{ url_for('static', filename='oauth_' + provider + '.svg') }}" alt="Log in with Google" />
+        </a>
+    </li>
+    {% endfor %}
 </ul>
 
 <h2>Log in with recovery phrase</h2>
