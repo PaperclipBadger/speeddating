@@ -141,7 +141,7 @@ async def oauth_login(provider: str):
     if not cfg:
         abort(404)
 
-    redirect_uri = url_for("oauth_callback", provider=provider, _external=True)
+    redirect_uri = url_for("oauth_callback", provider=provider, _external=True, _scheme="https")
     client = AsyncOAuth2Client(cfg["client_id"], redirect_uri=redirect_uri, scope=cfg["scope"])
     uri, state = client.create_authorization_url(cfg["authorize_url"])
 
@@ -159,7 +159,7 @@ async def oauth_callback(provider: str):
     if request.args.get("state") != session.get("oauth_state"):
         abort(400, "state mismatch")
 
-    redirect_uri = url_for("oauth_callback", provider=provider, _external=True)
+    redirect_uri = url_for("oauth_callback", provider=provider, _external=True, _scheme="https")
     client = AsyncOAuth2Client(cfg["client_id"], cfg["client_secret"], redirect_uri=redirect_uri)
     token = await client.fetch_token(
         cfg["token_url"],
