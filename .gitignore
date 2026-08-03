@@ -221,3 +221,6 @@ __marimo__/
 
 # databases
 *.sqlite
+
+# secrets that should not end up in version control
+config.toml

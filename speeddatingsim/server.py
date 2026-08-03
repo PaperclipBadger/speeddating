@@ -1,16 +1,20 @@
 import asyncio
 import enum
-import re
 import functools
+import pathlib
 import random
-from collections.abc import Awaitable
+import re
+import tomllib
+from collections.abc import Awaitable, Mapping
+from typing import TypedDict
 
+import jinja2.filters
 import numpy as np
 import qrcode
 import qrcode.image.svg
-import jinja2.filters
-from quart import Quart, Response, abort, render_template, redirect, jsonify, url_for, make_response, request
+from authlib.integrations.httpx_client import AsyncOAuth2Client
 from pony import orm
+from quart import Quart, Response, abort, render_template, redirect, session, jsonify, url_for, make_response, request
 
 from speeddatingsim.feistel import permute, unpermute
 from speeddatingsim.mwmatching import maxWeightMatching
@@ -39,6 +43,7 @@ class Session(db.Entity):
 
 
 class User(db.Entity):
+    oauth_accounts = orm.Set("OAuthAccount")
     name = orm.Required(str)
     tarot = orm.Required(int)
     details = orm.Required(str)
@@ -51,6 +56,14 @@ class User(db.Entity):
     recommended_to = orm.Set("Recommendation", reverse="object")
     similarities = orm.Set("Similarity", reverse="subject")
     similar_to = orm.Set("Similarity", reverse="object")
+
+
+class OAuthAccount(db.Entity):
+    user = orm.Required(User)
+    provider = orm.Required(str)     # "google" | "facebook" | "apple"
+    sub = orm.Required(str)          # provider's stable user id
+    email = orm.Optional(str)
+    orm.composite_key(provider, sub)
 
 
 class Date(db.Entity):
@@ -82,6 +95,17 @@ class Recommendation(db.Entity):
     weight = orm.Required(float)
 
 
+class OAuthProvider(TypedDict):
+    client_id: str
+    client_secret: str
+    authorize_url: str
+    token_url: str
+    userinfo_url: str
+    scope: str
+
+
+OAUTH_PROVIDERS: Mapping[str, OAuthProvider]
+
 app = Quart(__name__)
 
 
@@ -93,19 +117,86 @@ def with_user(func):
                 (userid := request.cookies.get("userid"))
                 and (user := User.get(id=int(userid)))
             ):
+                return redirect(url_for("login_page"))
+        response = await make_response(await func(*args, userid=user.id, **kwargs))
+        response.set_cookie("userid", str(user.id))
+        return response
+    return wrapper
+
+
+@app.route("/login")
+async def login():
+    with orm.db_session:
+        if (
+            (userid := request.cookies.get("userid"))
+            and (user := User.get(id=int(userid)))
+        ):
+            return redirect(url_for("user_page"))
+    return await render_template("login.html")
+
+
+@app.route("/login/<provider>")
+async def oauth_login(provider: str):
+    cfg = OAUTH_PROVIDERS.get(provider)
+    if not cfg:
+        abort(404)
+
+    redirect_uri = url_for("oauth_callback", provider=provider, _external=True)
+    client = AsyncOAuth2Client(cfg["client_id"], redirect_uri=redirect_uri, scope=cfg["scope"])
+    uri, state = client.create_authorization_url(cfg["authorize_url"])
+
+    session["oauth_state"] = state
+    session["oauth_provider"] = provider
+    # remember which existing anon user (if any) triggered login, to merge accounts
+    session["linking_userid"] = request.cookies.get("userid")
+
+    return redirect(uri)
+
+
+@app.route("/auth/<provider>/callback")
+async def oauth_callback(provider: str):
+    cfg = OAUTH_PROVIDERS[provider]
+    if request.args.get("state") != session.get("oauth_state"):
+        abort(400, "state mismatch")
+
+    redirect_uri = url_for("oauth_callback", provider=provider, _external=True)
+    client = AsyncOAuth2Client(cfg["client_id"], cfg["client_secret"], redirect_uri=redirect_uri)
+    token = await client.fetch_token(
+        cfg["token_url"],
+        authorization_response=request.url,
+    )
+    resp = await client.get(cfg["userinfo_url"])
+    info = resp.json()
+
+    print("OAUTH info retrieved:", info)
+
+    sub = str(info["sub"] if provider == "google" else info["id"])
+    email = info.get("email")
+
+    with orm.db_session:
+        account = OAuthAccount.get(provider=provider, sub=sub)
+        if account:
+            user = account.user
+        else:
+            # optionally merge into the anonymous user who initiated login
+            linking_id = session.get("linking_userid")
+            user = User.get(id=int(linking_id)) if linking_id else None
+            if not user:
                 tarot_card = random.choice(TAROT_CARDS)
                 adjective = random.choice(ADJECTIVES)
-
                 user = User(
                     name=f"{adjective.title()} {tarot_card.noun}",
                     tarot=tarot_card.index,
                     details="This user has not given contact information.",
                 )
                 user.flush()
-        response = await make_response(await func(*args, userid=user.id, **kwargs))
-        response.set_cookie("userid", str(user.id))
-        return response
-    return wrapper
+            OAuthAccount(user=user, provider=provider, sub=sub, email=email or "")
+
+        userid = user.id
+
+    response = await make_response(redirect(url_for("index")))
+    response.set_cookie("userid", str(userid), max_age=60 * 60 * 24 * 400)  # long-lived
+    return response
 
 
 @app.template_filter('qr')
@@ -977,6 +1068,32 @@ async def stream_notifications(event: asyncio.Event, teardown: Awaitable[None]):
 def init_db():
     db.bind(provider="sqlite", filename="database.sqlite", create_db=True)
     db.generate_mapping(create_tables=True)
+
+
+CONFIG_FILENAME = "config.toml"
+
+@app.before_serving
+def load_config() -> None:
+    global OAUTH_PROVIDERS
+
+    HERE = pathlib.Path(__file__)
+    for parent in HERE.parents:
+        if (config_path := parent / CONFIG_FILENAME).exists():
+            with config_path.open('rb') as f:
+                config = tomllib.load(f)
+
+            app.secret_key = config["secret_key"]
+
+            OAUTH_PROVIDERS = {
+                name: OAuthProvider(**table)
+                for name, table in config.get("oauth", {}).items()
+            }
+            break
+
+        elif (parent / ".git").exists():
+            raise FileNotFoundError(CONFIG_FILENAME)
+    else:
+        raise FileNotFoundError(CONFIG_FILENAME)
 
 
 M = len(ADJECTIVES) * len(NOUNS) * len(VERBS) * len(ADJECTIVES)

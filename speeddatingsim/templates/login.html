@@ -1,0 +1,16 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<h2>Log in with OAuth2</h2>
+<ul>
+    <li><a href="{{ url_for('oauth_login', provider='google') }}">Log in with Google</a></li>
+</ul>
+
+<h2>Log in with recovery phrase</h2>
+<form action="{{ url_for('user_change_identity') }}" method="post" id="userChangeIdentity">
+    <div class="formcontainer" style="width: 100%">
+        <input name="phrase" class="textentry" value="{{ recovery_phrase }}" />
+        <input type="submit" />
+    </div>
+</form>
+{% endblock %}
