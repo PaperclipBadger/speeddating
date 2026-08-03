@@ -168,7 +168,8 @@ async def oauth_callback(provider: str):
     resp = await client.get(cfg["userinfo_url"])
     info = resp.json()
 
-    print("OAUTH info retrieved:", info)
+    with open("dump.txt", "w") as f:
+        print("OAUTH info retrieved:", info, file=f)
 
     sub = str(info["sub"] if provider == "google" else info["id"])
     email = info.get("email")
