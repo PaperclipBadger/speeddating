@@ -194,6 +194,8 @@ async def oauth_callback(provider: str):
                     name = info['given_name']
                 elif 'name' in info:
                     name = info['name'] 
+                elif 'username' in info:
+                    name = info['username']
                 else:
                     name = f"{adjective.title()} {tarot_card.noun}"
 
