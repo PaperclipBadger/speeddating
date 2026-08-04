@@ -397,11 +397,16 @@ async def session_page(sessionid: int, userid: int):
         for a, b in matches:
             a.load()
             b.load()
+
+        is_admin = (
+            userid == session.owner.id
+            or is_global_admin(userid)
+        )
         
     if session:
         return await render_template(
             "session.html",
-            admin=(userid == session.owner.id),
+            admin=is_admin,
             user=user,
             session=session,
             users=users,
@@ -907,7 +912,7 @@ async def user_delete(userid: int):
 @with_user
 async def admin_page(userid: int):
     with orm.db_session:
-        authorized = is_global_admin()
+        authorized = is_global_admin(userid)
 
     if not authorized:
         abort(403)
@@ -926,7 +931,7 @@ async def admin_page(userid: int):
 @with_user
 async def admin_user_delete(userid: int):
     with orm.db_session:
-        authorized = is_global_admin()
+        authorized = is_global_admin(userid)
 
     if not authorized:
         abort(403)
