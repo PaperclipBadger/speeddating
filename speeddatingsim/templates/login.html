@@ -2,6 +2,24 @@
 
 {% block content %}
 <h2>Log in with OAuth2</h2>
+
+<p>
+    Whichever service you log in with, we request your name and email address.
+    If there's already an account with that email address, we'll log you in as that account.
+    This makes it easy to recover your identity if you get logged out.
+</p>
+
+<p>
+    We retain your email address until you delete your account.
+    We also retain your subject id / openid tag.
+    We otherwise retain no data from the service you log in with.
+</p>
+
+<p>
+    When your account is created, we set your account name to the name we get from the service you logged in with.
+    You can change your account name at any time.
+</p>
+
 <ul class="buttonlist">
     {% for provider in oauth_providers %}
     <li class="listbutton">
@@ -14,10 +32,30 @@
 </ul>
 
 <h2>Log in with recovery phrase</h2>
+
+<p>
+    If you can't remember what credentials you logged in with,
+    the session admin can give you a four-word recovery phrase you can use to recover your account.
+</p>
+
 <form action="{{ url_for('user_change_identity') }}" method="post" id="userChangeIdentity">
     <div class="formcontainer" style="width: 100%">
         <input name="phrase" class="textentry" value="{{ recovery_phrase }}" />
         <input type="submit" />
     </div>
 </form>
+
+<h2>Log in as temporary user <b>NOT RECOMMENDED</b></h2>
+
+<p>
+    If you don't have any of the above services, you can log in as a temporary user.
+    Your identity will be stored as a browser cookie.
+    Certain browsers (e.g. Brave) regularly clear cookies,
+    which can lead to you being suddenly logged out.
+    If this happens, <b>don't create a new identity!</b>
+    Instead, talk to the session admin, who can give you a recovery phrase.
+</p>
+
+<a href="{{ url_for('oauth_login', provider='fiat') }}">Create a temporary user</a>
+
 {% endblock %}

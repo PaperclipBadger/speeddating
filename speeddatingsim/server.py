@@ -112,32 +112,63 @@ app = Quart(__name__)
 def with_user(func):
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
+        try:
+            userid = int(request.cookies.get("userid"))
+        except ValueError:
+            response = redirect(url_for("login_page"))
+            response.delete_cookie("userid")
+            return response
+
         with orm.db_session:
-            if not (
-                (userid := request.cookies.get("userid"))
-                and (user := User.get(id=int(userid)))
-            ):
-                return redirect(url_for("login_page"))
+            if not (user := User.get(id=int(userid))):
+                response = redirect(url_for("login_page"))
+                response.delete_cookie("userid")
+                return response
+
         response = await make_response(await func(*args, userid=user.id, **kwargs))
         response.set_cookie("userid", str(user.id))
         return response
     return wrapper
 
 
+def maybe_with_user(func):
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        userid = request.cookies.get("userid")
+        response = await make_response(await func(*args, userid=userid, **kwargs))
+        return response
+    return wrapper
+
+
 @app.route("/login")
-async def login():
+async def login_page():
     with orm.db_session:
         if (
             (userid := request.cookies.get("userid"))
             and (user := User.get(id=int(userid)))
         ):
-            return redirect(url_for("user_page"))
-    print(OAUTH_PROVIDERS)
+            return redirect(request.referrer or url_for("user_page"))
     return await render_template("login.html", oauth_providers=list(OAUTH_PROVIDERS))
 
 
 @app.route("/login/<provider>")
 async def oauth_login(provider: str):
+    if provider == "fiat":
+        with orm.db_session:
+            tarot_card = random.choice(TAROT_CARDS)
+            adjective = random.choice(ADJECTIVES)
+            name = f"{adjective.title()} {tarot_card.noun}"
+            user = User(
+                name=name,
+                tarot=tarot_card.index,
+                details="This user has not given contact information.",
+            )
+            user.flush()
+            userid = user.id
+        response = await make_response(redirect(url_for("index")))
+        response.set_cookie("userid", str(userid), max_age=60 * 60 * 24 * 400)  # long-lived
+        return response
+
     cfg = OAUTH_PROVIDERS.get(provider)
     if not cfg:
         abort(404)
@@ -169,9 +200,6 @@ async def oauth_callback(provider: str):
     resp = await client.get(cfg["userinfo_url"])
     info = resp.json()
 
-    with open("dump.txt", "w") as f:
-        print("OAUTH info retrieved:", info, file=f)
-
     sub = str(info["sub"] if provider == "google" else info["id"])
     email = info.get("email")
 
@@ -190,10 +218,16 @@ async def oauth_callback(provider: str):
                 adjective = random.choice(ADJECTIVES)
 
                 name: str
+                # google splits into given and family names
                 if 'given_name' in info:
                     name = info['given_name']
+                # facebok just gives name
                 elif 'name' in info:
                     name = info['name'] 
+                # discord display name
+                elif 'global_name' in info:
+                    name = info['global_name']
+                # discord user name 
                 elif 'username' in info:
                     name = info['username']
                 else:
@@ -232,10 +266,19 @@ async def make_recovery_phrase(data: int) -> str:
 
 
 @app.route("/")
-async def index():
+@maybe_with_user
+async def index(userid: int | None):
     with orm.db_session:
         sessions = list(Session.select())
-    return await render_template("index.html", sessions=sessions)
+        for session in sessions:
+            session.load()
+        
+        if userid and (user := User.get(id=userid)):
+            user.load()
+        else:
+            user = None
+
+    return await render_template("index.html", sessions=sessions, user=user)
 
 
 @app.route("/sessions", methods=["GET", "POST"])
@@ -244,9 +287,11 @@ async def sessions_page(userid: int):
     if request.method == "GET":
         with orm.db_session:
             sessions = list(Session.select())
+            user = User.get(id=userid)
         return await render_template(
             "sessions.html",
             sessions=sessions,
+            user=user,
             refresh_url=url_for('sessions_page_events'),
         )
     elif request.method == "POST":
@@ -814,6 +859,26 @@ async def user_edit(userid: int):
         for session in user.sessions:
             await session_notify_subscribers(session.id)
     return redirect(request.referrer or url_for('index'))
+
+
+@app.route("/logout", methods=["POST"])
+@with_user
+async def user_logout(userid: int):
+    response = redirect(request.referrer or url_for('index'))
+    response.delete_cookie("userid")
+    return response
+
+
+@app.route("/user/delete", methods=["POST"])
+@with_user
+async def user_delete(userid: int):
+    with orm.db_session:
+        # cascading delete
+        User.get(id=userid).delete()
+
+    response = redirect(request.referrer or url_for('index'))
+    response.delete_cookie("userid")
+    return response
 
 
 @app.route("/tarot")

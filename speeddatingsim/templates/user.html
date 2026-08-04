@@ -1,6 +1,11 @@
 {% extends 'layout.html' %}
 
 {% block content %}
+<form action="{{ url_for('user_logout') }}" method="post" id="logoutForm"></form>
+<div style="text-align: right;">
+    <button type="submit" name="logoutButton" value="logoutButton" form="logoutForm">Sign Out</button>
+</div>
+
 <h2>{{ user.name }}</h2>
 {% if user.sessions %}
 <p>You are part of {{ user.sessions|length }} session{% if user.sessions|length != 1%}s{% endif %}</p>
@@ -39,14 +44,18 @@
 <img src="{{ url_for('static', filename=card.svg_filename) }}" alt="image here">
 <p><a href="{{ url_for('tarot_page', index=user.tarot) }}">Explain my tarot!</a></p>
 
+<h2>Recovery phrase</h2>
 <p>Your recovery phrase is:</p>
 <p style="text-align: center; font-size: 24pt;">{{ recovery_phrase }}</p>
 
-<h2>Switch User</h2>
-<form action="{{ url_for('user_change_identity') }}" method="post" id="userChangeIdentity">
-    <div class="formcontainer" style="width: 100%">
-        <input name="phrase" class="textentry" value="{{ recovery_phrase }}" />
-        <input type="submit" />
-    </div>
+<h2>Danger Zone</h2>
+<p>
+    This button deletes your account. Once deleted, your account <b>cannot be recovered</b>.
+    It is immediately and irrevocably deleted from the database, in accordance with GDPR.
+</p>
+<form action="{{ url_for('user_delete') }}" method="post" id="logoutForm">
+    <button type="submit" name="deleteButton" value="deleteButton">
+        <span style="color: darkred">Delete your account</span>
+    </button>
 </form>
 {% endblock %}

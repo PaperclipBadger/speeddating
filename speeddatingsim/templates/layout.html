@@ -27,7 +27,11 @@
             <h1><a href="{{ url_for('index') }}">Blaine's Queer Speed Matching</a></h1>
         </div>
         <div class="menu">
-            <a href="{{ url_for('user_page') }}">{% if user %}{{ user.name }}{% else %}Guest{% endif %}</a>
+            {% if user %}
+            <a href="{{ url_for('user_page') }}">{{ user.name }}</a>
+            {% else %}
+            <a href="{{ url_for('login_page') }}">Sign in</a>
+            {% endif %}
         </div>
     </div>
     <div id="content">
