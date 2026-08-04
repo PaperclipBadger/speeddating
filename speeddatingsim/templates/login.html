@@ -6,7 +6,8 @@
     {% for provider in oauth_providers %}
     <li class="listbutton">
         <a href="{{ url_for('oauth_login', provider=provider) }}">
-            <img src="{{ url_for('static', filename='oauth_' + provider + '.svg') }}" alt="Log in with Google" />
+            <img src="{{ url_for('static', filename='oauth_' + provider + '.svg') }}"
+                alt="Log in with {{ provider | title }}" />
         </a>
     </li>
     {% endfor %}
