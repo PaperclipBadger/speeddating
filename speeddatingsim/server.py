@@ -917,9 +917,8 @@ async def admin_page(userid: int):
     if not authorized:
         abort(403)
 
-    user = User.get(id=userid)
-
     with orm.db_session:
+        user = User.get(id=userid)
         users = list(orm.select(user for user in User))
         for user in users:
             user.load()
