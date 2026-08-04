@@ -178,7 +178,7 @@ async def oauth_callback(provider: str):
     with orm.db_session:
         if account := OAuthAccount.get(provider=provider, sub=sub):
             user = account.user
-        elif email and (other_account := OAuthAccount.get(email=email)):
+        elif email and (other_account := orm.select(a for a in OAuthAccount if a.email == email).first()):
             user = other_account.user
             OAuthAccount(user=user, provider=provider, sub=sub, email=email)
         else:
