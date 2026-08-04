@@ -26,13 +26,15 @@
 {% endif %}
 
 <h2>Edit</h2>
-<p>Change your name:</p>
-<form action="{{ url_for('user_edit') }}" method="post" class="formcontainer">
-    <input class="clickToEdit textentry" name="name" value="{{ user.name }}">
-    <input type="submit">
-</form>
+<form action="{{ url_for('user_edit') }}" method="post" id="userEditForm"></form>
 <form action="{{ url_for('user_draw_tarot') }}" method="post" id="drawTarotForm"></form>
 <form action="{{ url_for('user_draw_adjective') }}" method="post" id="drawAdjectiveForm"></form>
+
+<p>Change your name:</p>
+<div class="formcontainer">
+    <input class="clickToEdit textentry" name="name" value="{{ user.name }}" form="userEditForm">
+    <input type="submit" form="userEditForm">
+</div>
 <div class="formcontainer">
     <button type="submit" name="drawTarotButton" value="drawTarot" form="drawTarotForm">Redraw Tarot</button>
     <button type="submit" name="drawAdjectiveButton" value="drawAdjective" form="drawAdjectiveForm">Redraw
@@ -40,7 +42,8 @@
 </div>
 <p>These details will be shown to people you match with:</p>
 <div class="formcontainer">
-    <input class="clickToEdit textentry" name="details" value="{{ user.details }}" form="userEditForm"></h2>
+    <input class="clickToEdit textentry" name="details" value="{{ user.details }}" form="userEditForm">
+    <input type="submit" form="userEditForm">
 </div>
 <img src="{{ url_for('static', filename=card.svg_filename) }}" alt="image here">
 <p><a href="{{ url_for('tarot_page', index=user.tarot) }}">Explain my tarot!</a></p>
