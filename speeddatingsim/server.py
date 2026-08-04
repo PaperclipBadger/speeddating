@@ -398,10 +398,7 @@ async def session_page(sessionid: int, userid: int):
             a.load()
             b.load()
 
-        is_admin = (
-            userid == session.owner.id
-            or is_global_admin(userid)
-        )
+        is_admin = is_session_admin(sessionid, userid)
         
     if session:
         return await render_template(
@@ -440,9 +437,10 @@ async def session_page_events(sessionid: int):
 async def session_start(sessionid: int, userid: int):
     with orm.db_session:
         session = Session.get(id=sessionid)
-        session.owner.load()
+        authorized = is_session_admin(sessionid, userid)
+
     if session:
-        if session.owner.id == userid:
+        if authorized:
             session.status = SessionStatus.ACTIVE
             return redirect(url_for("session_page", sessionid=session.id))
         abort(401)
@@ -454,9 +452,9 @@ async def session_start(sessionid: int, userid: int):
 async def session_end(sessionid: int, userid: int):
     with orm.db_session:
         session = Session.get(id=sessionid)
-        session.owner.load()
+        authorized = is_session_admin(sessionid, userid)
     if session:
-        if session.owner.id == userid:
+        if authorized:
             session.status = SessionStatus.CLOSED
             return redirect(url_for("session_page", sessionid=session.id))
         abort(401)
@@ -469,7 +467,7 @@ async def session_kick(sessionid: int, userid: int):
     with orm.db_session:
         session = Session.get(id=sessionid)
         if session:
-            if session.owner.id != userid:
+            if not is_session_admin(sessionid, userid):
                 abort(401)
             if (
                 (otheruserid := (await request.form).get("user"))
@@ -494,7 +492,7 @@ async def session_ban(sessionid: int, userid: int):
     with orm.db_session:
         session = Session.get(id=sessionid)
         if session:
-            if session.owner.id != userid:
+            if not is_session_admin(sessionid, userid):
                 abort(401)
             if (
                 (otheruserid := (await request.form).get("user"))
@@ -521,7 +519,7 @@ async def session_revoke_ban(sessionid: int, userid: int):
     with orm.db_session:
         session = Session.get(id=sessionid)
         if session:
-            if session.owner.id != userid:
+            if not is_session_admin(sessionid, userid):
                 abort(401)
             if (
                 (otheruserid := (await request.form).get("user"))
@@ -557,7 +555,7 @@ async def session_edit_dates(sessionid: int, userid: int):
     with orm.db_session:
         session = Session.get(id=sessionid)
         if session:
-            if session.owner.id != userid:
+            if not is_session_admin(sessionid, userid):
                 abort(401)
 
     for key, value in form.items():
@@ -621,7 +619,7 @@ async def session_delete_date(sessionid: int, userid: int, dateid: int):
     with orm.db_session:
         session = Session.get(id=sessionid)
         if session:
-            if session.owner.id != userid:
+            if not is_session_admin(sessionid, userid):
                 abort(401)
 
             if date := Date.get(id=dateid, session=session):
@@ -915,7 +913,7 @@ async def admin_page(userid: int):
         authorized = is_global_admin(userid)
 
     if not authorized:
-        abort(403)
+        abort(401)
 
     with orm.db_session:
         user = User.get(id=userid)
@@ -936,7 +934,7 @@ async def admin_user_delete(userid: int):
         authorized = is_global_admin(userid)
 
     if not authorized:
-        abort(403)
+        abort(401)
 
     with orm.db_session:
         targetid = (await request.form)["user"]
@@ -944,6 +942,11 @@ async def admin_user_delete(userid: int):
             target.delete()
 
     return redirect(request.referrer or url_for('index'))
+
+
+def is_session_admin(sessionid: int, userid: int) -> bool:
+    session = Session.get(id=sessionid)
+    return userid == session.owner.id or is_global_admin(userid)
 
 
 def is_global_admin(userid: int) -> bool:
