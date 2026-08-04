@@ -179,6 +179,7 @@ async def oauth_login(provider: str):
     redirect_uri = url_for("oauth_callback", provider=provider, _external=True, _scheme="https")
     client = AsyncOAuth2Client(
         cfg["client_id"],
+        cfg["client_secret"],
         redirect_uri=redirect_uri,
         scope=cfg["scope"],
         token_endpoint_auth_method=cfg.get("token_endpoint_auth_method", "client_secret_basic"),
@@ -202,6 +203,7 @@ async def oauth_callback(provider: str):
     redirect_uri = url_for("oauth_callback", provider=provider, _external=True, _scheme="https")
     client = AsyncOAuth2Client(
         cfg["client_id"],
+        cfg["client_secret"],
         redirect_uri=redirect_uri,
         scope=cfg["scope"],
         token_endpoint_auth_method=cfg.get("token_endpoint_auth_method", "client_secret_basic"),
