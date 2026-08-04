@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <title>Blaine's Queer Speed Matching</title>
+    <title>Blaine's Speed Matching</title>
     {% if refresh_url %}
     <script>
         const es = new EventSource("{{ refresh_url }}");
@@ -24,7 +24,7 @@
 <body>
     <div id="header">
         <div class="titlebox">
-            <h1><a href="{{ url_for('index') }}">Blaine's Queer Speed Matching</a></h1>
+            <h1><a href="{{ url_for('index') }}">Blaine's Speed Matching</a></h1>
         </div>
         <div class="menu">
             {% if user %}

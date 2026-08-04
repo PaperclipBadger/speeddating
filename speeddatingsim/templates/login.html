@@ -3,23 +3,6 @@
 {% block content %}
 <h2>Log in with OAuth2</h2>
 
-<p>
-    Whichever service you log in with, we request your name and email address.
-    If there's already an account with that email address, we'll log you in as that account.
-    This makes it easy to recover your identity if you get logged out.
-</p>
-
-<p>
-    We retain your email address until you delete your account.
-    We also retain your subject id / openid tag.
-    We otherwise retain no data from the service you log in with.
-</p>
-
-<p>
-    When your account is created, we set your account name to the name we get from the service you logged in with.
-    You can change your account name at any time.
-</p>
-
 <ul class="buttonlist">
     {% for provider in oauth_providers %}
     <li class="listbutton">
@@ -30,6 +13,29 @@
     </li>
     {% endfor %}
 </ul>
+<p>
+    Whichever service you log in with, we request your name and email address.
+    If there's already an account with that email address, we'll log you in as that account.
+    This makes it easy to recover your identity if you get logged out.
+</p>
+<p>
+    We retain your email address until you delete your account.
+    We also retain your subject id / openid tag.
+    We otherwise retain no data from the service you log in with.
+</p>
+<p>
+    When your account is created, we set your account name to the name we get from the service you logged in with.
+    You can change your account name at any time.
+</p>
+<p>
+    Facebook will complain that the app is unauthorized;
+    Blaine's Speed Matching is not a registered business with a VAT ID or bank account,
+    and is thus ineligible for the business verification required to make that message go away.
+</p>
+<p>
+    AppleID is not supported because you can't create an AppleID OAuth2 client
+    without paying a $99 annual membership fee to join the Apple Developer Program.
+</p>
 
 <h2>Log in with recovery phrase</h2>
 

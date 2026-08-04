@@ -114,7 +114,7 @@ def with_user(func):
     async def wrapper(*args, **kwargs):
         try:
             userid = int(request.cookies.get("userid"))
-        except ValueError:
+        except (ValueError, TypeError):
             response = redirect(url_for("login_page"))
             response.delete_cookie("userid")
             return response
@@ -125,29 +125,31 @@ def with_user(func):
                 response.delete_cookie("userid")
                 return response
 
-        response = await make_response(await func(*args, userid=user.id, **kwargs))
-        response.set_cookie("userid", str(user.id))
-        return response
+        return await make_response(await func(*args, userid=user.id, **kwargs))
     return wrapper
 
 
 def maybe_with_user(func):
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
-        userid = request.cookies.get("userid")
+        try:
+            userid = int(request.cookies.get("userid"))
+        except (ValueError, TypeError):
+            userid = None
+        else:
+            with orm.db_session:
+                if not User.get(id=int(userid)):
+                    userid = None
         response = await make_response(await func(*args, userid=userid, **kwargs))
         return response
     return wrapper
 
 
 @app.route("/login")
-async def login_page():
-    with orm.db_session:
-        if (
-            (userid := request.cookies.get("userid"))
-            and (user := User.get(id=int(userid)))
-        ):
-            return redirect(request.referrer or url_for("user_page"))
+@maybe_with_user
+async def login_page(userid: int | None):
+    if userid is not None:
+        return redirect(request.referrer or url_for("user_page"))
     return await render_template("login.html", oauth_providers=list(OAUTH_PROVIDERS))
 
 
@@ -200,7 +202,7 @@ async def oauth_callback(provider: str):
     resp = await client.get(cfg["userinfo_url"])
     info = resp.json()
 
-    sub = str(info["sub"] if provider == "google" else info["id"])
+    sub = str(info["sub"] if provider in ("google", "linkedin") else info["id"])
     email = info.get("email")
 
     with orm.db_session:
