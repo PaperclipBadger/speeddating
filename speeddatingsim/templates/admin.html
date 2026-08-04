@@ -7,14 +7,21 @@
 <ul>
     {% for other in users %}
     <li>{{ other.name }}
-        {% for account in other.oauth_accounts %}
-        {{ account.provider }} {{ account.email }}
-        {% endfor %}
         <form action="{{ url_for('admin_user_delete', sessionid=session.id) }}" method="POST"
             style="display: inline !important;">
             <input hidden name="user" value="{{ other.id }}">
             <input type="submit" value="delete forever">
         </form>
+        {% if other.oauth_accounts %}
+        <details>
+            <summary>OAuth2 Accounts</summary>
+            <ul>
+                {% for account in other.oauth_accounts %}
+                <li>{{ account.provider }}: {{ account.email }}</li>
+                {% endfor %}
+            </ul>
+        </details>
+        {% endif %}
         <details>
             <summary>Recovery Phrase</summary>
             {{ other.id|recovery_phrase }}
