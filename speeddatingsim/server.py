@@ -919,9 +919,12 @@ async def admin_page(userid: int):
 
     with orm.db_session:
         user = User.get(id=userid)
+        user.load()
         users = list(orm.select(user for user in User))
-        for user in users:
-            user.load()
+        for other in users:
+            other.load()
+            for account in other.oauth_accounts:
+                account.load()
 
     return await render_template("admin.html", user=user, users=users)
 
