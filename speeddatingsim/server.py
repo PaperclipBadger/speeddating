@@ -847,12 +847,13 @@ async def user_draw_adjective(userid: int):
             abort(500)
         old_name = user.name
         for user_adjective in ADJECTIVES:
-            user.name = re.sub(rf"\b{user_adjective}\b", adjective, user.name)
+            user.name = re.sub(rf"\b{user_adjective}\b", adjective, user.name, 1)
+        if user.name == old_name:
+            user.name = f"{adjective} {user.name}"
         user.sessions.load()
-    if user.name != old_name:
-        await user_notify_subscribers(user.id)
-        for session in user.sessions:
-            await session_notify_subscribers(session.id)
+    await user_notify_subscribers(user.id)
+    for session in user.sessions:
+        await session_notify_subscribers(session.id)
     return redirect(request.referrer or url_for('index'))
 
 

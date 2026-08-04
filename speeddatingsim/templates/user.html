@@ -26,13 +26,14 @@
 {% endif %}
 
 <h2>Edit</h2>
-<form action="{{ url_for('user_edit') }}" method="post" id="userEditForm">
-    <input type="submit" hidden />
+<p>Change your name:</p>
+<form action="{{ url_for('user_edit') }}" method="post" class="formcontainer">
+    <input class="clickToEdit textentry" name="name" value="{{ user.name }}">
+    <input type="submit">
 </form>
 <form action="{{ url_for('user_draw_tarot') }}" method="post" id="drawTarotForm"></form>
 <form action="{{ url_for('user_draw_adjective') }}" method="post" id="drawAdjectiveForm"></form>
 <div class="formcontainer">
-    <input class="clickToEdit textentry" name="name" value="{{ user.name }}" form="userEditForm"></h2>
     <button type="submit" name="drawTarotButton" value="drawTarot" form="drawTarotForm">Redraw Tarot</button>
     <button type="submit" name="drawAdjectiveButton" value="drawAdjective" form="drawAdjectiveForm">Redraw
         Adjective</button>
