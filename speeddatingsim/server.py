@@ -438,11 +438,12 @@ async def session_start(sessionid: int, userid: int):
     with orm.db_session:
         session = Session.get(id=sessionid)
         authorized = is_session_admin(sessionid, userid)
+        if session and authorized:
+            session.status = SessionStatus.ACTIVE
 
     if session:
         if authorized:
-            session.status = SessionStatus.ACTIVE
-            return redirect(url_for("session_page", sessionid=session.id))
+            return redirect(request.referrer or url_for("session_page", sessionid=session.id))
         abort(401)
     abort(404)
 
@@ -453,10 +454,12 @@ async def session_end(sessionid: int, userid: int):
     with orm.db_session:
         session = Session.get(id=sessionid)
         authorized = is_session_admin(sessionid, userid)
+        if session and authorized:
+            session.status = SessionStatus.CLOSED
+
     if session:
         if authorized:
-            session.status = SessionStatus.CLOSED
-            return redirect(url_for("session_page", sessionid=session.id))
+            return redirect(request.referrer or url_for("session_page", sessionid=session.id))
         abort(401)
     abort(404)
 
