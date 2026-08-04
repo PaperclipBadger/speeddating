@@ -284,8 +284,8 @@ async def index(userid: int | None):
 
 
 @app.route("/sessions", methods=["GET", "POST"])
-@with_user
-async def sessions_page(userid: int):
+@maybe_with_user
+async def sessions_page(userid: int | None):
     if request.method == "GET":
         with orm.db_session:
             sessions = list(Session.select())
@@ -297,6 +297,9 @@ async def sessions_page(userid: int):
             refresh_url=url_for('sessions_page_events'),
         )
     elif request.method == "POST":
+        if userid is None:
+            return redirect(url_for("login_page"))
+
         with orm.db_session:
             session = Session(
                 name=(await request.form)["Session name"],
@@ -319,7 +322,7 @@ async def sessions_page_events():
 
 
 @app.route("/sessions/<int:sessionid>")
-@with_user
+@maybe_with_user
 async def session_page(sessionid: int, userid: int):
     with orm.db_session:
         session = Session.get(id=sessionid)
@@ -366,8 +369,11 @@ async def session_page(sessionid: int, userid: int):
             else:
                 decisions[date.right.id][date.left.id] = "?"
         
-        user = User.get(id=userid)
-        user.load()
+        if userid is not None:
+            user = User.get(id=userid)
+            user.load()
+        else:
+            user = None
 
         matches = [
             (date.left, date.right)
