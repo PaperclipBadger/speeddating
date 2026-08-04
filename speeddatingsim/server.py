@@ -903,6 +903,51 @@ async def user_delete(userid: int):
     return response
 
 
+@app.route("/admin")
+@with_user
+async def admin_page(userid: int):
+    with orm.db_session:
+        authorized = is_global_admin()
+
+    if not authorized:
+        abort(403)
+
+    user = User.get(id=userid)
+
+    with orm.db_session:
+        users = list(orm.select(user for user in User))
+        for user in users:
+            user.load()
+
+    return render_template("admin.html", user=user, users=users)
+
+
+@app.route("/admin/user/delete", methods=["POST"])
+@with_user
+async def admin_user_delete(userid: int):
+    with orm.db_session:
+        authorized = is_global_admin()
+
+    if not authorized:
+        abort(403)
+
+    with orm.db_session:
+        targetid = (await request.form)["user"]
+        if target := User.get(id=targetid):
+            target.delete()
+
+    return redirect(request.referrer or url_for('index'))
+
+
+def is_global_admin(userid: int) -> bool:
+    return orm.select(
+        a for a in OAuthAccount
+        if a.user.id == userid
+        if a.provider == "google"
+        if a.email == "blaine.w.rogers@gmail.com"
+    ).exists()
+
+
 @app.route("/tarot")
 async def tarots_page():
     return await render_template("tarots.html", cards=TAROT_CARDS)
