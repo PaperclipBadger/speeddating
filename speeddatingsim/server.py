@@ -6,7 +6,7 @@ import random
 import re
 import tomllib
 from collections.abc import Awaitable, Mapping
-from typing import TypedDict
+from typing import TypedDict, NotRequired
 
 import jinja2.filters
 import numpy as np
@@ -102,6 +102,7 @@ class OAuthProvider(TypedDict):
     token_url: str
     userinfo_url: str
     scope: str
+    token_endpoint_auth_method: NotRequired[str]
 
 
 OAUTH_PROVIDERS: Mapping[str, OAuthProvider]
@@ -176,7 +177,12 @@ async def oauth_login(provider: str):
         abort(404)
 
     redirect_uri = url_for("oauth_callback", provider=provider, _external=True, _scheme="https")
-    client = AsyncOAuth2Client(cfg["client_id"], redirect_uri=redirect_uri, scope=cfg["scope"])
+    client = AsyncOAuth2Client(
+        cfg["client_id"],
+        redirect_uri=redirect_uri,
+        scope=cfg["scope"],
+        token_endpoint_auth_method=cfg.get("token_endpoint_auth_method", "client_secret_basic"),
+    )
     uri, state = client.create_authorization_url(cfg["authorize_url"])
 
     session["oauth_state"] = state
@@ -194,7 +200,12 @@ async def oauth_callback(provider: str):
         abort(400, "state mismatch")
 
     redirect_uri = url_for("oauth_callback", provider=provider, _external=True, _scheme="https")
-    client = AsyncOAuth2Client(cfg["client_id"], cfg["client_secret"], redirect_uri=redirect_uri)
+    client = AsyncOAuth2Client(
+        cfg["client_id"],
+        redirect_uri=redirect_uri,
+        scope=cfg["scope"],
+        token_endpoint_auth_method=cfg.get("token_endpoint_auth_method", "client_secret_basic"),
+    )
     token = await client.fetch_token(
         cfg["token_url"],
         authorization_response=request.url,
