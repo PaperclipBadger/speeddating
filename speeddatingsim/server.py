@@ -923,7 +923,7 @@ async def admin_page(userid: int):
         for user in users:
             user.load()
 
-    return render_template("admin.html", user=user, users=users)
+    return await render_template("admin.html", user=user, users=users)
 
 
 @app.route("/admin/user/delete", methods=["POST"])
