@@ -164,7 +164,7 @@ async def oauth_login(provider: str):
             user = User(
                 name=name,
                 tarot=tarot_card.index,
-                details="This user has not given contact information.",
+                details="",
             )
             user.flush()
             userid = user.id
@@ -251,7 +251,7 @@ async def oauth_callback(provider: str):
                 user = User(
                     name=name,
                     tarot=tarot_card.index,
-                    details="This user has not given contact information.",
+                    details="",
                 )
                 user.flush()
 

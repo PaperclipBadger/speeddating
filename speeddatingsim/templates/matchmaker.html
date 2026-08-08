@@ -1,65 +1,35 @@
 {% extends 'layout.html' %}
 
 {% block content %}
-<form action="{{ url_for('user_edit') }}" method="post" id="userEditForm">
-    <input type="submit" hidden />
-</form>
-<form action="{{ url_for('user_draw_tarot') }}" method="post" id="drawTarotForm"></form>
-<form action="{{ url_for('user_draw_adjective') }}" method="post" id="drawAdjectiveForm"></form>
 <form action="{{ url_for('user_decide', sessionid=session.id) }}" method="post" id="decideForm"></form>
 <div>
     <p style="text-align: center; font-size: 20pt;">Your table number is {{ tableno }}.</p>
 </div>
 <p><b>Contact prompt:</b> {{ contact_prompt }}</p>
 <p><b>Conversation prompt:</b> &OpenCurlyDoubleQuote;{{ convo_prompt }}&CloseCurlyDoubleQuote;</p>
-<div class="columns">
-    <div>
-        <h2>{{ user.name }} (You)</h2>
-        <div class="formcontainer">
-            <input class="clickToEdit textentry" name="name" value="{{ user.name }}" form="userEditForm"></h2>
-            <button type="submit" name="drawTarotButton" value="drawTarot" form="drawTarotForm">Redraw Tarot</button>
-            <button type="submit" name="drawAdjectiveButton" value="drawAdjective" form="drawAdjectiveForm">Redraw
-                Adjective</button>
-        </div>
-        <h3>Details for matches</h3>
-        <p>These details will be shown to people you match with:</p>
-        <div class="formcontainer">
-            <input class="clickToEdit textentry" name="details" value="{{ user.details }}" form="userEditForm"></h2>
-        </div>
+<div>
+    {% if other_user %}
+    <h2>{{ other_user.name }} (Them)</h2>
+    {% if no_decision %}
+    <div class="formcontainer">
+        <button class="goodoption" type="submit" name="decide_yes" value="1" form="decideForm">Yes</button>
+        <button class="badoption" type="submit" name="decide_no" value="-1" form="decideForm">No</button>
     </div>
-    <div>
-        {% if other_user %}
-        <h2>{{ other_user.name }} (Them)</h2>
-        {% if no_decision %}
-        <div class="formcontainer">
-            <button class="goodoption" type="submit" name="decide_yes" value="1" form="decideForm">Yes</button>
-            <button class="badoption" type="submit" name="decide_no" value="-1" form="decideForm">No</button>
-        </div>
-        {% else %}
-        <p>Thanks for casting judgement!</p>
-        {% endif %}
-        {% else %}
-        <p>Waiting for the host to run matchmaking...</p>
-        {% endif %}
-    </div>
-</div>
-<div class="columns">
-    <div>
-        <img src="{{ url_for('static', filename=card.svg_filename) }}" alt="image here">
-        <p><a href="{{ url_for('tarot_page', index=user.tarot) }}">Explain my tarot!</a></p>
-    </div>
-    <div>
-        {% if other_user %}
-        <img src="{{ url_for('static', filename=other_card.svg_filename) }}" alt="image here">
-        <p><a href="{{ url_for('tarot_page', index=other_user.tarot) }}">Explain their tarot!</a></p>
-        {% endif %}
-    </div>
+    {% else %}
+    <p>Thanks for casting judgement!</p>
+    {% endif %}
+    <img src="{{ url_for('static', filename=other_card.svg_filename) }}" alt="image here">
+    <p><a href="{{ url_for('tarot_page', index=other_user.tarot) }}">Explain their tarot!</a></p>
+    {% else %}
+    <p>Waiting for the host to run matchmaking...</p>
+    {% endif %}
 </div>
 <p>You have {{ matches|length }} match{% if matches|length != 0 %}es{% endif %} this session.</p>
 {% if matches %}
 <ul>
     {% for other in matches %}
-    <li><b>{{ other.name }}:</b> {{ other.details }}</li>
+    <li><b>{{ other.name }}:</b> {% if other.details %}{{ other.details }}{% else %}This user has not entered contact
+        details.{% endif %}</li>
     {% endfor %}
 </ul>
 {% endif %}

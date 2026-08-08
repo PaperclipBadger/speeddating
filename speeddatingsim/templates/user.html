@@ -42,7 +42,8 @@
 </div>
 <p>These details will be shown to people you match with:</p>
 <div class="formcontainer">
-    <input class="clickToEdit textentry" name="details" value="{{ user.details }}" form="userEditForm">
+    <input class="clickToEdit textentry" name="details" value="{{ user.details }}"
+        placeholder="This user has not entered contact details." form="userEditForm">
     <input type="submit" form="userEditForm">
 </div>
 <img src="{{ url_for('static', filename=card.svg_filename) }}" alt="image here">
