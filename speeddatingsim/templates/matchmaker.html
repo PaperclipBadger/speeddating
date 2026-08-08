@@ -22,7 +22,7 @@
 {% else %}
 <p style="text-align: center; font-size: 20pt;">Waiting for the host to run matchmaking...</p>
 {% endif %}
-<p>You have {{ matches|length }} match{% if matches|length != 0 %}es{% endif %} this session.</p>
+<p>You have {{ matches|length }} match{% if matches|length != 1 %}es{% endif %} this session.</p>
 {% if matches %}
 <ul>
     {% for other in matches %}
