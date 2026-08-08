@@ -2,13 +2,11 @@
 
 {% block content %}
 <form action="{{ url_for('user_decide', sessionid=session.id) }}" method="post" id="decideForm"></form>
-<div>
-    <p style="text-align: center; font-size: 20pt;">Your table number is {{ tableno }}.</p>
-</div>
+{% if other_user %}
+<p style="text-align: center; font-size: 20pt;">Your table number is {{ tableno }}.</p>
 <p><b>Contact prompt:</b> {{ contact_prompt }}</p>
 <p><b>Conversation prompt:</b> &OpenCurlyDoubleQuote;{{ convo_prompt }}&CloseCurlyDoubleQuote;</p>
 <div>
-    {% if other_user %}
     <h2>{{ other_user.name }} (Them)</h2>
     {% if no_decision %}
     <div class="formcontainer">
@@ -20,10 +18,10 @@
     {% endif %}
     <img src="{{ url_for('static', filename=other_card.svg_filename) }}" alt="image here">
     <p><a href="{{ url_for('tarot_page', index=other_user.tarot) }}">Explain their tarot!</a></p>
-    {% else %}
-    <p>Waiting for the host to run matchmaking...</p>
-    {% endif %}
 </div>
+{% else %}
+<p style="text-align: center; font-size: 20pt;">Waiting for the host to run matchmaking...</p>
+{% endif %}
 <p>You have {{ matches|length }} match{% if matches|length != 0 %}es{% endif %} this session.</p>
 {% if matches %}
 <ul>
