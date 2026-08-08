@@ -34,7 +34,12 @@
 {% if recommendations %}
 <div>
     <h3>Matching Statistics</h3>
-    <p>Here's how similar your preferences are to other people:</p>
+    <p>
+        Here's how similar your preferences are to other people.
+        People who are high up in this list like the same people you like,
+        and dislike the people you dislike.
+        We try to match you with people these people like.
+    </p>
     <table>
         <tr>
             <th>Other User</th>
@@ -47,7 +52,10 @@
         </tr>
         {% endfor %}
     </table>
-    <p>Here are your matching weights from the last round:</p>
+    <p>
+        Here are your matching weights from the last round.
+        A higher number means the person was more highly recommended.
+    </p>
     <table>
         <tr>
             <th>Other User</th>
